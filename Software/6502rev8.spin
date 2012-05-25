@@ -471,7 +471,7 @@ DAT
   g_state               long    con_state_UNINITIALIZED ' Current state, don't use in loops!
   g_cmd                 long    0                       ' Current command, protected by busy-lock
   g_retval              long    0                       ' Result from previous command
-  g_signals             long    con_MASK_RESET          ' Signals for command
+  g_signals             long    con_MASK_SIGNALS        ' Signals for command
   g_addr                long    0                       ' Address bus for command
   g_data                long    0                       ' Data bus for command
   g_hubaddr             long    0                       ' Hub address for command
@@ -513,8 +513,8 @@ PUB Start
       parm_pCycleTime  := @g_cycletime
 
       ' Fire up the cog and wait until it's running
-      g_cmd          := -1 ' Set command to a dummy value          
-      g_controlcogid := cognew(@ControlCog, 0)
+      g_cmd            := -1 ' Set command to a dummy value          
+      g_controlcogid   := cognew(@ControlCog, 0)
       if (g_controlcogid => 0)
         ' Wait until the control cog resets the command
         repeat until g_cmd == 0
@@ -570,35 +570,63 @@ PUB LedToggle
   if (g_state == con_state_STOPPED)
     WaitSendCommand(@CmdLedToggle)
 
+
+PUB GetIna
+'' Get value of control cog's INA register
+
+  if (g_state == con_state_STOPPED)
+    result := WaitSendCommand(@CmdGetIna)
+
+        
+PUB GetOuta
+'' Get value of control cog's OUTA register
+
+  if (g_state == con_state_STOPPED)
+    result := WaitSendCommand(@CmdGetOuta)
+
+        
+PUB SetSignal(pin, high)
+'' Changes a signal pin
+'' The first parameter is the pin number. Should be one of pin_...:
+'' SEL0, SEL1, RAMA16, NMI, IRQ, RDY, RES, SO
+'' The second parameter is true to make the pin high, false to make it low
+
+  if (high)
+    g_signals |= (|< pin)
+  else
+    g_signals &= !(|< pin)
+
+  ' If the control cog is running, it will pick up the signals
+  ' automatically on each clock cycle; if it's stopped, we have to force
+  ' it here.
+  if (g_state == con_state_STOPPED)
+    WaitSendCommand(@CmdSignals)
+
+
+PUB SetSignals(value)
+'' Set all signals (not recommended)
+
+  g_signals := value
+
+  ' If the control cog is running, it will pick up the signals
+  ' automatically on each clock cycle; if it's stopped, we have to force
+  ' it here.
+  if (g_state == con_state_STOPPED)
+    WaitSendCommand(@CmdSignals)
     
-PUB SignalHigh(pin)
-'' Changes a signal pin to High
-'' The parameter is the pin number. Should be one of pin_...:
-'' SEL0, SEL1, RAMA16, NMI, IRQ, RDY, RES, SO
 
-  g_signals |= (|< pin)
+PUB GetSignal(pin)
+'' Gets the current value of the given pin as a "true" or "false" value
 
-  ' If the control cog is running, it will pick up the signals
-  ' automatically on each clock cycle; if it's stopped, we have to force
-  ' it here.
-  if (g_state == con_state_STOPPED)
-    WaitSendCommand(@CmdSignals)
+  return ((g_signals & (|< pin)) <> 0)
 
 
-PUB SignalLow(pin)
-'' Changes a signal pin to Low
-'' The parameter is the pin number. Should be one of pin_...:
-'' SEL0, SEL1, RAMA16, NMI, IRQ, RDY, RES, SO
+PUB GetSignals
+'' Gets all current signals (not recommended)
 
-  g_signals &= !(|< pin)
+  return g_signals
 
-  ' If the control cog is running, it will pick up the signals
-  ' automatically on each clock cycle; if it's stopped, we have to force
-  ' it here.
-  if (g_state == con_state_STOPPED)
-    WaitSendCommand(@CmdSignals)
-
-
+  
 PUB DisconnectI2C
 '' Temporarily disconnects the I2C bus to allow access to the EEPROM
 '' This can only be done in stop mode. When the next command is issued,
@@ -628,7 +656,7 @@ PUB Run(parm_cycletime, parm_numcycles)
 
 PUB RunWait(timeout) | timer
 '' In running state, wait until the control cog stops, or the timeout
-'' in cycles.
+'' in Propeller cycles.
 '' The lock will be freed afterwards if the control cog stopped within the
 '' timeout
 
@@ -751,6 +779,8 @@ PRI SendCommand(cmdtosend)
   ' Wait until the control cog picks up the command
   repeat while g_cmd == cmdtosend
 
+  result := g_retval
+  
 
 PRI WaitSendCommand(cmdtosend)
 ' Sends the given command without parameters and without results
@@ -758,7 +788,7 @@ PRI WaitSendCommand(cmdtosend)
 ' Waits for the lock and releases the lock afterwards
 
   Open
-  SendCommand(cmdtosend)
+  result := SendCommand(cmdtosend)
   Close
 
 
@@ -819,7 +849,17 @@ CmdLedOff               andn    OUTA, mask_LED
 
 CmdLedToggle            xor     OUTA, mask_LED
                         jmp     #CommandDone
-                                                
+
+                        
+CmdGetIna               mov     retval, INA   
+                        wrlong  retval, parm_pRetVal
+                        jmp     #CommandDone
+
+
+CmdGetOuta              mov     retval, OUTA
+                        wrlong  retval, parm_pRetVal
+                        jmp     #CommandDone
+                                                                                                 
 
 '============================================================================
 ' Helper subroutine: Update signals
@@ -900,7 +940,6 @@ CmdDisconnectI2C
 '============================================================================
 ' Download data from the hub to the RAM
 
-
 CmdDownload
                         ' Initialize parameters
                         rdlong  hubaddr, parm_pHubAddr
@@ -915,10 +954,11 @@ CmdDownload
                         min     cycletime, #con_delay_MAINLOOP_MINDELAY
 
                         ' Initialize state machine
-                        ' Z is always 1 at this time
+                        ' Z is always 0 at this time
                         ' For the first state, there is no address matching
                         muxnz   :addrmatch, mux_Z_TO_ALWAYS
                         movs    :addrmatch, #:state_nmi
+                        movs    :loopins, #:loop
 
                         '-------------------------------                        
                         ' Downloading state machine starts here
@@ -947,7 +987,7 @@ CmdDownload
                         '-------------------------------
                         ' The address doesn't match
                         ' Enable the RAM based on the R/W signal
-              if_c      andn    OUTA, mask_RAMOE        ' RAM to 65C02
+:doram        if_c      andn    OUTA, mask_RAMOE        ' RAM to 65C02
               if_nc     andn    OUTA, mask_RAMWE        ' 65C02 to RAM
 
                         ' Start Phi2
@@ -960,13 +1000,14 @@ CmdDownload
                         mov     clock, CNT
                         add     clock, cycletime
                         waitcnt clock, #0
-                        jmp     #:loop
+:loopins                jmp     #(:loop)                ' Changed to CommandDone when done                        
 
                         '-------------------------------
                         ' Feed a byte to the 6502 during Phi2
-:feedbyte6502           or      OUTA, mask_CLK0         ' Start Phi2                         
+:feedbyte6502
                         or      OUTA, feedbyte          ' 16 bits or'ed, upper 8 bits ignored
                         or      DIRA, mask_DATA         ' because of this DIRA setting
+                        or      OUTA, mask_CLK0         ' Start Phi2
 
                         jmp     #:loopwait                        
 
@@ -974,10 +1015,10 @@ CmdDownload
                         ' Initial state: Activate NMI
 :state_nmi
                         ' Restore the jmp instruction
-                        muxnz   :loopphi2, mux_Z_TO_ALWAYS ' Change back to if_z
+                        or      DIRA, mask_SIGNALS wz   ' Z is always 0
+                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' Change back to if_z
 
                         ' Generate NMI (which is edge triggered)
-                        or      DIRA, mask_SIGNALS
                         andn    signals, mask_NMI
                         call    #SendSignals
 
@@ -1020,10 +1061,6 @@ CmdDownload
                         ' but stay in this state
                         add     expectedaddr, #1
 
-                        ' If there's nothing more to store, skip it
-                        cmp     hublen, #0 wz
-              if_z      jmp     #:endwrite
-                                               
                         ' Get data from the hub at the current location 
                         rdbyte  data, hubaddr
 
@@ -1037,44 +1074,49 @@ CmdDownload
                         ' Wait for RAM to store the data
                         ' Meanwhile, do some housekeeping
                         add     hubaddr, #1
-                        sub     hublen, #1
+                        sub     hublen, #1 wz
+              if_z      jmp     #:endwrite                                                        
 
                         ' Deactivate RAM
                         or      OUTA, mask_RAMWE
 
-                        ' More housekeeping
-                        
                         ' Feed a CMP Immediate instruction to the 6502.
-                        mov     feedbyte, #$C9
+                        mov     feedbyte, #$C9          ' CMP IMMEDIATE
                         jmp     #:feedbyte6502
 
-:endwrite                         
-                        ' We've reached the end of the block.
-                        ' We're going to send an RTI instruction to the 6502
-                        ' regardless of what the current address is.
-                        ' However we should only change the state if the next
-                        ' address will be an even number of bytes away from
-                        ' the start address, because the CMP Immediate is a
-                        ' two byte instruction.
-                        test    expectedaddr, #1 wc     ' C=1 if odd
-                        test    startaddr, #1 wz        ' W=1 if even
-        if_c_ne_z       movs    :addrmatch, #:state_endnmi
-
-                        ' Feed RTI to the 6502
-                        mov     feedbyte, #$40
-                        jmp     #:feedbyte6502  
-                        
                         '-------------------------------
-                        ' Final state: Turn NMI off
-:state_endnmi
+                        ' Finishing up after last write-cycle
+                        ' Z=1 at this time
+:endwrite
                         ' Deactivate NMI
                         or      DIRA, mask_SIGNALS
                         or      signals, mask_NMI
                         call    #SendSignals
 
-                        ' All done.
-                        jmp     #CommandDone                        
-                                                                        
+                        ' From now on, disregard match to expected address
+                        ' and always jump to the state function                                                
+                        movs    :addrmatch, #:state_endwrite
+                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' disregard address from now on
+
+                        ' Feed RTI to the 6502
+:feedRTI                mov     feedbyte, #$40          ' RTI
+                        jmp     #:feedbyte6502
+                                                
+                        '-------------------------------
+                        ' Done writing bytes to RAM
+:state_endwrite
+                        ' We're now sending RTI instructions to the 6502.
+                        ' We do this until the current address doesn't match
+                        ' the expected address anymore, which means that the
+                        ' 6502 is fetching the flags and return address from
+                        ' the stack.
+              if_z      add     expectedaddr, #1
+              if_z      jmp     #:feedRTI
+
+                        ' Break out of the loop after finishing Phi2
+                        movs    :loopins, #CommandDone
+                        jmp     #:doram          
+                        
                         
 '============================================================================
 ' Run the main loop

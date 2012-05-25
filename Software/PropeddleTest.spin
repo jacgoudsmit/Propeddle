@@ -50,10 +50,10 @@ DAT
   romstart    long $1_0000 - (@romend - @romimage)
       
   signals     long propeddle#con_MASK_SIGNALS
-        
+
 PUB mainProgram | c, i
 
-  Zap  
+  Zap(false)  
 
   Demo
    
@@ -65,13 +65,14 @@ PUB mainProgram | c, i
     case c
       "i","I": InStatus
       "o","O": OutStatus
-      "z","Z": Zap
+      "z","Z": Zap(Propeddle.IsStarted)
       "0","1": SetBit(c - "0")
       "t","T": ToggleBit
       "s","S": SetSignal
       "c","C": Clock(true)
       "g","G": Go
       "r","R": ResetSequence(true)
+      "p","P": Zap(not Propeddle.IsStarted)
       
       other:   Help
                         
@@ -88,9 +89,10 @@ PUB Help
   text.str(string("S=Change signals",13))
   text.str(string("C=Generate a clock cycle, enable RAM as needed",13))
   text.str(string("G=Go (continuous clocks until character received on serial",13))
-  text.str(string("R=Reset sequence",13))   
-   
-PUB Zap | i
+  text.str(string("R=Reset sequence",13))
+  text.str(string("P=Toggle direct (spin, slow) vs Control Cog (pasm, fast) mode",13))
+                   
+PUB Zap(usecontrolcog) | i
 
   propeddle.Stop
   text.stop
@@ -101,12 +103,25 @@ PUB Zap | i
 
   text.start 'text.start(31,30,0,115200)
 
-  outa := propeddle#con_out_SAFE & !(|< propeddle#pin_LED)
-  dira := propeddle#con_mask_OUTPUTS
+  if (usecontrolcog)
+    Propeddle.Start
+
+  if (Propeddle.IsStarted)
+    outa := 0
+    dira := 0
+  else    
+    outa := propeddle#con_out_SAFE & !(|< propeddle#pin_LED)
+    dira := propeddle#con_mask_OUTPUTS
 
   signals := propeddle#con_MASK_SIGNALS
   SendSignals
 
+  if (Propeddle.IsStarted)
+    text.str(string("Using Propeddle Control Cog (fast)",13))
+  else
+    text.str(string("Using direct control from Spin (slow)",13))
+
+  
 PUB InStatus
 
   text.str(string("INA status:",13))
@@ -177,12 +192,17 @@ PRI PrintPin(s, value, pin)
   text.bin(value >> pin, 1)
   text.tx(13)
 
-PRI PrintOuta
+PRI PrintOuta | value
 
+  if (Propeddle.IsStarted)
+    value := Propeddle.GetOuta
+  else
+    value := outa
+    
   text.str(string(13,"OUTA = $"))
-  text.hex(outa, 8)
+  text.hex(value, 8)
   text.str(string(" %"))
-  text.bin(outa,32)
+  text.bin(value,32)
   text.tx(13)
   
 PUB SetBit(newvalue) | pin  
@@ -192,8 +212,11 @@ PUB SetBit(newvalue) | pin
   text.tx(13)
   
   pin := WhichBit
-  if (pin => 0)
-    outa[pin] := newvalue    
+  if (pin => 0) 
+    if (Propeddle.IsStarted)
+      Propeddle.SetSignal(pin, newvalue <> 0)
+    else
+      outa[pin] := newvalue    
 
   PrintOuta
 
@@ -203,7 +226,10 @@ PUB ToggleBit | pin
 
   pin := WhichBit
   if (pin => 0)
-    outa[pin] := !outa[pin]
+    if (Propeddle.IsStarted)
+      Propeddle.SetSignal(pin, not Propeddle.GetSignal(pin))
+    else
+      outa[pin] := !outa[pin]
 
   PrintOuta
       
@@ -251,6 +277,8 @@ PUB SetSignal | c, pin
 
   repeat
     pin := -1
+    if (Propeddle.IsStarted)
+      signals := Propeddle.GetSignals
     PrintSignals(signals)
     text.str(string(13,"Which signal to toggle? Enter=send these, Esc=cancel, ?=Help",13))
     text.str(string("*** NOTE: should only send signals with AEN disabled! ***",13,">"))
@@ -288,15 +316,18 @@ PUB SetSignal | c, pin
       
 PUB SendSignals
 
-  dira[8..15]~~
   text.str(string(13,"Sending signals",13))
   PrintSignals(signals)
-  outa := (outa & !(propeddle#con_mask_SIGNALS | (|< propeddle#pin_SLC))) | signals
-  outa |= (|< propeddle#pin_SLC)
-  dira[8..15]~   
-
+  if (Propeddle.IsStarted)
+    Propeddle.SetSignals(signals)
+  else
+    dira[8..15]~~
+    outa := (outa & !(propeddle#con_mask_SIGNALS | (|< propeddle#pin_SLC))) | signals
+    outa |= (|< propeddle#pin_SLC)
+    dira[8..15]~ 
+     
 PUB Clock(verbose) | mask, addr
-
+'@@@
   ' Phi1
   ' Start with the default Phi1 outputs but leave the LED unchanged
   outa := propeddle#con_OUT_PHI1 | (outa & (|< propeddle#pin_LED))
@@ -419,43 +450,4 @@ PUB Demo
   ResetSequence(false)
   Go
   
-{{PUB Use6502 | c
-
-  repeat       
-    text.rxflush
-    text.str(string("6502>"))
-    c := text.rx    
-    text.tx(13)
-    case c
-      "a","A": Propeddle.Start
-      "o","O": Propeddle.Stop
-      "d","D": demo
-      "x","X":
-        Propeddle.Stop
-        return
-      other:
-        text.str(string("Exercise the Propeddle PASM code",13))
-        text.str(string("A=Start",13))
-        text.str(string("O=Stop",13))
-        text.str(string("X=Main menu",13))
-        
-  
-PUB demo | cycletime, i
-  cycletime := 100_000_000
-  
-'  Propeddle.StartMem($FFF0, @romimage, @romend - @romend) 
-  Propeddle.SignalLow(Propeddle#pin_RES)
-  Propeddle.StartTrace(@tracedump, con_tracelen)
-
-  repeat i from 0 to con_tracelen - 1
-    if (i == 4)
-      Propeddle.SignalHigh(Propeddle#pin_RES)
-
-    Propeddle.LedToggle
-    Propeddle.Run(cycletime, 1)
-    Propeddle.RunWait(clkfreq)
-    
-    text.hex(tracedump[i-1], 8)
-    text.tx(13)
-  
-}}  
+      
