@@ -1,0 +1,11 @@
+main.c
+p6502control.h
+p6502control.cogc
+propeddle.c
+propeddle.h
+>compiler=C
+>memtype=lmm
+>optimize=-Os
+>-fno-exceptions
+>-Dprintf=__simple_printf
+>BOARD::PROPEDDLE100

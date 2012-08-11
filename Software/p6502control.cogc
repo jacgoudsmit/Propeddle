@@ -1,0 +1,944 @@
+/*
+ * p6502control.cogc
+ *
+ * Control cog for the Propeddle system
+ *
+ * (C) Copyright 2011-2012 Jac Goudsmit
+ * Distributed under the MIT license. See bottom of the file for details.
+ */
+
+
+/////////////////////////////////////////////////////////////////////////////
+// INCLUDES
+/////////////////////////////////////////////////////////////////////////////
+
+
+#include "p6502control.h"
+
+
+/////////////////////////////////////////////////////////////////////////////
+// MACROS
+/////////////////////////////////////////////////////////////////////////////
+
+
+#define P6502_DELAY_MAINLOOP_INIT (88)  // Main loop initial loop min duration (clocks)
+#define P6502_DELAY_MAINLOOP_MINDELAY (80) // Main loop subsequent loops min duration (clocks)
+
+
+/////////////////////////////////////////////////////////////////////////////
+// DATA
+/////////////////////////////////////////////////////////////////////////////
+
+
+volatile HUBDATA struct P6502_GLOBALS_T p6502_globals =
+{
+    .state = P6502_STATE_UNINITIALIZED,
+};
+
+
+/////////////////////////////////////////////////////////////////////////////
+// LOCAL FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////
+
+
+//---------------------------------------------------------------------------
+// Reset the current command, and wait for a new command
+//
+// By resetting the current command, we let the caller know that we're
+// ready for a new command. We then wait until such a command arrives.
+// The function returns with the new command.
+_NATIVE
+static P6502_CMD waitforcmd(void)
+{
+    P6502_CMD result;
+    
+    // Let caller know we're ready, and wait until a command is set
+    for(p6502_globals.cmd = P6502_CMD_NONE; (result = p6502_globals.cmd) == P6502_CMD_NONE;)
+    {
+        // Nothing to do here
+    }
+    
+    return result;
+}
+
+
+//---------------------------------------------------------------------------
+// Send signals from global data to the 6502
+//
+// Only the actual signal bits in the global signals data are used, other 
+// bits are ignored.
+// On entry, the DIR register should have the signal bits set for output.
+_NATIVE
+static void sendsignals(unsigned signals)
+{
+    __asm__ __volatile__(
+"\n                 and     %[signals], %[mask_SIGNALS]"
+"\n                 andn    OUTA,       %[mask_SLC_SIGNALS]"
+"\n                 or      OUTA,       %[signals]"
+"\n                 nop     "                           // Do not remove
+"\n                 or      OUTA,       %[mask_SLC]"
+
+:
+    [signals]               "+rC"       (signals)
+:
+    [mask_SIGNALS]          "rC"        (P6502_MASK_SIGNALS),
+    [mask_SLC_SIGNALS]      "rC"        (P6502_MASK_SIGNALS | pmask(pin_SLC)),
+    [mask_SLC]              "rC"        (pmask(pin_SLC))
+:
+);
+}
+
+
+//---------------------------------------------------------------------------
+// Shut down the control cog
+//
+// The global command is reset to NONE to indicate that the cog has stopped.
+_NATIVE //__attribute__((noreturn))
+static void cmd_shutdown(void)
+
+{
+    __asm__ __volatile__(
+"\n                 mov     OUTA,       %[out_INIT]"
+"\n                 nop     "
+"\n                 or      OUTA,       %[mask_SLC]"
+
+:
+:
+    [out_INIT]              "rC"        (P6502_MASK_OUT_INIT),
+    [mask_SLC]              "rC"        (pmask(pin_SLC))
+:
+);
+
+    p6502_globals.cmd = P6502_CMD_NONE; // Let caller know we're stopping
+    
+    cogstop(cogid());
+}
+
+
+//---------------------------------------------------------------------------
+// Disconnect from I2C bus
+//
+// Stops the cog from using the SCL line which is shared with the I2C bus.
+// This makes it possible (and is necessary) to use the I2C bus for other
+// purposes including XMM programming.
+// Normally the control cog holds SDA high and uses SCL as clock for the
+// 6502, but while the control cog is in disconnected state, it doesn't use
+// the SDA/SCL lines at all.
+// To prevent the 6502 from running on clock signals from other cogs, it is
+// halted by activating the RDY signal.
+_NATIVE
+static P6502_CMD cmd_disconnect_i2c(void)
+{
+    P6502_CMD result;
+    
+    // Activate RDY to halt the 6502
+    sendsignals(p6502_globals.signals & ~pmask(pin_RDY));
+    
+    _DIRA &= ~P6502_MASK_I2C;
+    result = waitforcmd();
+    _DIRA = P6502_MASK_DIR_INIT;
+    
+    sendsignals(p6502_globals.signals);
+    
+    return result;
+}
+
+
+//---------------------------------------------------------------------------
+// Run the 6502 at the desired speed, until told to stop
+_NATIVE
+static void cmd_run(void)
+{
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// PUBLIC FUNCTIONS
+/////////////////////////////////////////////////////////////////////////////
+
+
+//---------------------------------------------------------------------------
+// Main program for the control cog
+//
+// The control cog communicates with the rest of the program through the
+// global data structure. There should never be more than on instance of the
+// control cog.
+//
+// Basically, the command in the global data can be used to detect whether
+// the control cog is ready for a new command, as well as to send such a
+// command. The parameters to the command are passed through the global
+// data struct too, as well as any possible return values.
+//
+// The calling cog should use a lock to prevent contention between multiple
+// callers trying to send a command at the same time. The lock can also be
+// used to safely store the return values when a command is completed.
+_NATIVE
+void main(void)
+{
+    P6502_STATE state = P6502_STATE_UNINITIALIZED;
+    
+    _DIRA = P6502_MASK_DIR_INIT;
+    _OUTA = P6502_MASK_OUT_INIT;
+
+    sendsignals(p6502_globals.signals);
+    
+    for(;;)
+    {
+        P6502_CMD cmd;
+        
+        // If we're in STOPPED state, wait for a command.
+        // If we're in another state, we should already have a command that
+        // was intended to get us out of that state. In that case, we
+        // don't want to clobber the command.
+        if (state == P6502_STATE_STOPPED)
+        {
+            cmd = waitforcmd();
+        }
+        else
+        {
+            p6502_globals.state = state = P6502_STATE_STOPPED;
+        }
+        
+        // Execute the command
+        switch(cmd)
+        {
+        case P6502_CMD_NONE:
+            // Nothing to do
+            break;
+            
+        case P6502_CMD_SHUTDOWN:
+            cmd_shutdown();
+            break;
+            
+        case P6502_CMD_LED_ON:
+            _OUTA |= P6502_MASK_LED;
+            break;
+            
+        case P6502_CMD_LED_OFF:
+            _OUTA &= ~P6502_MASK_LED;
+            break;
+            
+        case P6502_CMD_LED_TOGGLE:
+            _OUTA ^= P6502_MASK_LED;
+            break;
+            
+        case P6502_CMD_GET_INA:
+            p6502_globals.retval = _INA;
+            break;
+            
+        case P6502_CMD_GET_OUTA:
+            p6502_globals.retval = _OUTA;
+            break;
+            
+        case P6502_CMD_SET_SIGNALS:
+            sendsignals(p6502_globals.signals);
+            break;
+            
+        case P6502_CMD_DISCONNECT_I2C:
+            p6502_globals.state = state = P6502_STATE_DISCONNECTED;
+            cmd = cmd_disconnect_i2c();
+            break;
+            
+        case P6502_CMD_RUN:
+            p6502_globals.state = state = P6502_STATE_RUNNING;
+            cmd_run();
+            break;
+            
+        default:
+            ; // Ignore bad commands
+        }
+    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+/////////////////////////////////////////////////////////////////////////////
+
+
+/*
+    __asm__(
+"//============================================================================"
+"// Control Cog code starts here"
+""
+""
+                        "// Init direction register"
+                        "mov     DIRA, dir_INIT"
+""
+                        "// Initialize all outputs except signals"
+                        "mov     OUTA, out_INIT"
+""
+                        "// Fall through"
+"//============================================================================"
+"// Command fetching loop"
+""
+                        ""
+"SetStopState"
+                        "// Initialize state"
+                        "mov     state, #con_state_STOPPED "
+                        "wrlong  state, parm_pState"
+""
+"CmdSignals                        "
+                        "// Read signals from the hub and put them out"
+                        "call    #UpdateSignals                        "
+""
+"CommandDone"
+                        "// Signal that we're done with current command"
+                        "mov     cmd, #0"
+                        "wrlong  cmd, parm_pCmd                        "
+""
+                        "// At this point, other cogs may read results, set"
+                        "// new values and issue a new command."
+"                        "
+                        "// Get command and execute it"
+"GetCommand              rdlong  cmd, parm_pCmd wz"
+"ProcessCommand          movs    :jmptocommand, cmd"
+              "if_z      jmp     #GetCommand             // No action if cmd=0"
+":jmptocommand           jmp     #(CmdShutDown)          // Src replaced by cmd                        "
+""
+""
+"//============================================================================"
+"// Debugging"
+""
+""
+"CmdLedOn"
+                        "or      OUTA, mask_LED"
+                        "jmp     #CommandDone"
+""
+""
+"CmdLedOff               andn    OUTA, mask_LED"
+                        "jmp     #CommandDone"
+""
+""
+"CmdLedToggle            xor     OUTA, mask_LED"
+                        "jmp     #CommandDone"
+""
+                        ""
+"CmdGetIna               mov     retval, INA   "
+                        "wrlong  retval, parm_pRetVal"
+                        "jmp     #CommandDone"
+""
+""
+"CmdGetOuta              mov     retval, OUTA"
+                        "wrlong  retval, parm_pRetVal"
+                        "jmp     #CommandDone"
+                                                                                                 ""
+""
+"//============================================================================"
+"// Helper subroutine: Update signals"
+""
+""
+"UpdateSignals"
+                        "rdlong  signals, parm_pSignals"
+"SendSignals                        "
+                        "and     signals, mask_SIGNALS"
+                        "andn    OUTA, mask_SLC_SIGNALS"
+                        "or      OUTA, signals"
+                        "nop                             // Do not remove"
+                        "or      OUTA, mask_SLC          // Clock the flipflops"
+""
+"UpdateSignals_Ret"
+"SendSignals_Ret"
+                        "ret"
+""
+                        ""
+"//============================================================================"
+"// Shut down"
+                        ""
+"CmdShutDown"
+                        "mov     OUTA, out_INIT"
+                        "nop"
+                        "or      OUTA, mask_SLC"
+""
+                        "// Change state back to UNINITIALIZED so we can be"
+                        "// restarted"
+                        "mov     state, #con_state_UNINITIALIZED"
+                        "wrlong  state, parm_pState"
+""
+                        "// Signal that we're done with the command                        "
+                        "mov     cmd, #0"
+                        "wrlong  cmd, parm_pCmd"
+""
+                        "// The caller is responsible for stopping the cog"
+                        "// Alternatively, the command can be set to a nonzero"
+                        "// value to restart the control cog. This might be"
+                        "// useful in case the hub copy of this code gets"
+                        "// overwritten to reuse the memory for other purposes"
+                        "// Of course, when restarting, the parameters aren't"
+                        "// reinitialized because the code is not loaded from"
+                        "// hub memory. Normally this should not be a problem."
+":shutdownloop"
+                        "rdlong  cmd, parm_pCmd wz"
+              "if_z      jmp     #0"
+                        "jmp     #:shutdownloop                         "
+""
+""
+"//============================================================================"
+"// Disconnect from the I2C lines to allow other cogs to use the EEPROM"
+"//"
+"// The 65C02 gets reconnected when the next command is received."
+"// NOTE: other cogs that synchronize with the control cog should be stopped."
+""
+"CmdDisconnectI2C"
+                        "// Activate the RDY line temporarily to prevent the"
+                        "// 65C02 from interpreting I2C pulses as clocks"
+                        "andn    signals, mask_RDY"
+                        "call    #SendSignals"
+""
+                        "// Disable the outputs until the next command"
+                        "andn    DIRA, mask_I2C"
+""
+                        "// Reset command"
+                        "mov     cmd, #0"
+                        "wrlong  cmd, parm_pCmd"
+""
+                        "// Read new command until there is one"
+":loop                   rdlong  cmd, parm_pCmd wz                        "
+              "if_z      jmp     #:loop"
+""
+                        "// Reset the direction register"
+                        "mov     DIRA, dir_INIT"
+""
+                        "// Reset the signals"
+                        "call    #UpdateSignals"
+""
+                        "// Set the state"
+                        "mov     state, #con_state_STOPPED"
+                        "wrlong  state, parm_pState"
+"                        "
+                        "// Process the command"
+                        "jmp     #ProcessCommand                          "
+"                        "
+""
+"//============================================================================"
+"// Download data from the hub to the RAM"
+""
+"CmdDownload"
+                        "// Initialize parameters"
+                        "rdlong  hubaddr, parm_pHubAddr"
+                        "rdlong  hublen, parm_pHubLen wz"
+                        "rdlong  startaddr, parm_pAddr"
+                        "rdlong  cycletime, parm_pCycleTime"
+"                        "
+                        "// If nothing to do, return"
+              "if_z      jmp     #CommandDone"
+"              "
+                        "// Initialize timer"
+                        "min     cycletime, #con_delay_MAINLOOP_MINDELAY"
+""
+                        "// Initialize state machine"
+                        "// Z is always 0 at this time"
+                        "// For the first state, there is no address matching"
+                        "muxnz   :addrmatch, mux_Z_TO_ALWAYS"
+                        "movs    :addrmatch, #:state_nmi"
+                        "movs    :loopins, #:loop"
+""
+                        "//-------------------------------                        "
+                        "// Downloading state machine starts here"
+":loop                        "
+                        "// Start Phi1"
+                        "mov     OUTA, out_PHI1"
+""
+                        "// Wait for address bus to stabilize"
+                        "// Meanwhile, initialize direction and test for"
+                        "// read/write."
+                        "andn    DIRA, mask_ADDR"
+                        "test    INA, mask_RW wc"
+""
+                        "// Get address"
+                        "mov     addr, INA"
+                        "and     addr, mask_ADDR"
+""
+                        "// Disable address latches                                "
+                        "or      OUTA, mask_AEN"
+""
+                        "// If the address matches the currently expected"
+                        "// address, jump to the currently defined state"
+                        "cmp     addr, expectedaddr wz"
+":addrmatch    if_z      jmp     #(0)                    // Modified to jump depending on state"
+""
+                        "//-------------------------------"
+                        "// The address doesn't match"
+                        "// Enable the RAM based on the R/W signal"
+":doram        if_c      andn    OUTA, mask_RAMOE        // RAM to 65C02"
+              "if_nc     andn    OUTA, mask_RAMWE        // 65C02 to RAM"
+""
+                        "// Start Phi2"
+":loopphi2                        "
+                        "or      OUTA, mask_CLK0"
+""
+                        "// Nothing to do during Phi2"
+":loopwait"
+                        "// Wait for the entire cycle time"
+                        "mov     clock, CNT"
+                        "add     clock, cycletime"
+                        "waitcnt clock, #0"
+":loopins                jmp     #(:loop)                // Changed to CommandDone"
+                                                        "// when done"
+""
+                        "//-------------------------------"
+                        "// Feed a byte to the 6502 during Phi2"
+":feedbyte6502"
+                        "or      OUTA, feedbyte          // 16 bits or'ed, upper 8 bits ignored"
+                        "or      DIRA, mask_DATA         // because of this DIRA setting"
+                        "or      OUTA, mask_CLK0         // Start Phi2"
+""
+                        "jmp     #:loopwait                        "
+""
+                        "//-------------------------------"
+                        "// Initial state: Activate NMI"
+":state_nmi"
+                        "// Restore the jmp instruction"
+                        "or      DIRA, mask_SIGNALS wz   // Z is always 0"
+                        "muxz    :addrmatch, mux_Z_TO_ALWAYS // Change back to if_z"
+""
+                        "// Generate NMI (which is edge triggered)"
+                        "andn    signals, mask_NMI"
+                        "call    #SendSignals"
+""
+                        "// Change state when NMI vector appears"
+                        "mov     expectedaddr, vector_NMI"
+                        "movs    :addrmatch, #:state_vector1"
+""
+                        "// Finish as normal cycle"
+                        "jmp     #:loopphi2"
+"                        "
+                        "//-------------------------------"
+                        "// 6502 is fetching low part of vector"
+":state_vector1"
+                        "// Next time, check for the second half of the vector"
+                        "add     expectedaddr, #1"
+                        "movs    :addrmatch, #:state_vector2"
+""
+                        "// Feed the low byte of the start address to the 6502"
+                        "// Note, bits 8-15 are ignored because of DIRA setting"
+                        "// We use this to store the value temporarily"
+                        "mov     feedbyte, startaddr"
+""
+                        "jmp     #:feedbyte6502"
+"                        "
+                        "//-------------------------------"
+                        "// 6502 is fetching high part of vector"
+":state_vector2"
+                        "// Next time, check for the start address of our area"
+                        "mov     expectedaddr, startaddr"
+                        "movs    :addrmatch, #:state_writedata"
+""
+                        "// Feed the high byte of the start address to the 6502"
+                        "shr     feedbyte, #8"
+                        "jmp     #:feedbyte6502"
+""
+                        "//-------------------------------"
+                        "// 6502 is iterating our target area"
+":state_writedata"
+                        "// Next time, expect the address to be one higher"
+                        "// but stay in this state"
+                        "add     expectedaddr, #1"
+""
+                        "// Get data from the hub at the current location "
+                        "rdbyte  data, hubaddr"
+""
+                        "// Put data from hub on data bus"
+                        "or      OUTA, data"
+                        "or      DIRA, mask_DATA"
+""
+                        "// Activate the RAM"
+                        "andn    OUTA, mask_RAMWE"
+""
+                        "// Wait for RAM to store the data"
+                        "// Meanwhile, do some housekeeping"
+                        "add     hubaddr, #1"
+                        "sub     hublen, #1 wz"
+              "if_z      jmp     #:endwrite                                                        "
+""
+                        "// Deactivate RAM"
+                        "or      OUTA, mask_RAMWE"
+""
+                        "// Feed a CMP Immediate instruction to the 6502."
+                        "mov     feedbyte, #$C9          // CMP IMMEDIATE"
+                        "jmp     #:feedbyte6502"
+""
+                        "//-------------------------------"
+                        "// Finishing up after last write-cycle"
+                        "// Z=1 at this time"
+":endwrite"
+                        "// Deactivate NMI"
+                        "or      DIRA, mask_SIGNALS"
+                        "or      signals, mask_NMI"
+                        "call    #SendSignals"
+""
+                        "// From now on, disregard match to expected address"
+                        "// and always jump to the state function"
+"                        movs    :addrmatch, #:state_endwrite"
+                        "muxz    :addrmatch, mux_Z_TO_ALWAYS // disregard address from now on"
+""
+                        "// Feed RTI to the 6502"
+":feedRTI                mov     feedbyte, #$40          // RTI"
+                        "jmp     #:feedbyte6502"
+                                                ""
+                        "//-------------------------------"
+                        "// Done writing bytes to RAM"
+":state_endwrite"
+                        "// We're now sending RTI instructions to the 6502."
+                        "// We do this until the current address doesn't match"
+                        "// the expected address anymore, which means that the"
+                        "// 6502 is fetching the flags and return address from"
+                        "// the stack."
+              "if_z      add     expectedaddr, #1"
+              "if_z      jmp     #:feedRTI"
+""
+                        "// Break out of the loop after finishing Phi2"
+                        "movs    :loopins, #CommandDone"
+                        "jmp     #:doram          "
+"                        "
+"                        "
+"//============================================================================"
+"// Run the main loop"
+""
+""
+"CmdRun"
+                        "// Read the time that each clock cycle should take"
+                        "// Store this in the clock counter which is used for"
+                        "// the waitcnt instructions."
+                        "// Make sure the value is at least equal to the"
+                        "// minimum execution time for the first loop."
+                        "// The actual value of the system clock is added as"
+                        "// last instuction before jumping into the loop."
+                        "rdlong  cycletime, parm_pCycleTime"
+                        "min     cycletime, #con_delay_MAINLOOP_MINDELAY wc"
+""
+                        "// If the cycle time is less than the minimum, skip"
+                        "// the WAITCNT instructions"
+              "if_c      movs    LoopIns, #NoWaitMainLoop"
+              "if_nc     movs    LoopIns, #MainLoop"
+                        "muxnc   DropOutIns, mux_NEVER_TO_ALWAYS"
+""
+                        "// Initialize the clock to cycle time, but minimize"
+                        "// this by the minimum time for the first cycle"
+                        "// Note, CNT is added just before jumping into the"
+                        "// loop.      "
+                        "mov     clock, cycletime"
+                        "min     clock, #con_delay_MAINLOOP_INIT"
+""
+                        "// Read the number of clock cycles to execute."
+                        "// Depending on whether the count is 0, enable or"
+                        "// disable the check at the end of the loop."
+                        "// In other words, if z=1 here, change the"
+                        "// if_nc_and_nz condition to if_nc by setting the"
+                        "// given bits "
+                        "rdlong  counter, parm_pCounter wz"
+                        "muxz    LoopIns, mux_NCANDNZ_TO_NC"
+""
+                        "// Initialize return value"
+                        "mov     retval, #0"
+                        "wrlong  retval, parm_pRetVal"
+"                        "
+                        "// Set the state to Running"
+                        "mov     state, #con_state_RUNNING"
+                        "wrlong  state, parm_pState"
+"                        "
+                        "// Add the system clock to the local clock. This"
+                        "// should be done just before jumping into the loop."
+                        "add     clock, CNT"
+                        "jmp     #NoWaitMainLoop"
+"                        "
+""
+"//============================================================================"
+"// Main loop: generate clock cycles to let the 65C02 run its program"
+""
+"// NOTE: The following code was meticulously constructed to generate a loop"
+"// that executes at 1MHz when the Propeller runs at 80MHz. When the Propeller"
+"// runs at 100MHz, the 65C02 can be run at up to 1.25MHz."
+"// The timing was based on the 65C02 datasheet from Western Design Center."
+"// This may NOT run correctly on older (NMOS) 6502s because they may have"
+"// different timing requirements: especially the setup times at the start"
+"// of Phi1 are much longer for the original 6502 than for the 65C02."
+""
+""
+"MainLoop"
+"//t=16..20 on first run"
+"//t=16..18 on subsequent runs"
+                        "// Wait for the end of the requested cycle time"
+                        "// Initialization may change the JMP at the end of the"
+                        "// loop so that this instruction is skipped."
+                        "waitcnt clock, cycletime"
+"NoWaitMainLoop"
+"//t>21 after 1 cycle with waitcnt"
+"//t>19 on subsequent cycles with waitcnt"
+"//t=19 without waitcnt"
+                        "// Start Phi1 by setting the clock low."
+                        "// At the same time, initialize all the other outputs"
+                        "// so that the RAM is disabled, the clock for the"
+                        "// signal latches is primed, and all signal bits are"
+                        "// set to 0 so the signals from the hub can be ORed"
+                        "// with them."
+                        "mov     OUTA, out_PHI1"
+"//t=0"
+                        "// The 74*244 bus drivers are also enabled with the"
+                        "// previous instruction, but we have to wait for the"
+                        "// 65C02 to generate the address (setup time), and for"
+                        "// the '244s to forward the address to us (propagation"
+                        "// delay). We use this time to change the direction of"
+                        "// the address bus pins and to test if no other cog is"
+                        "// holding the PINT pin HIGH to interrupt us."
+                        "// There may be a short timespan during which both"
+                        "// the '244s and the Propeller drive the pins, but"
+                        "// this only happens for a few nanoseconds so it"
+                        "// shouldn't cause any damage."
+                        "andn    DIRA, mask_SIGNALS"
+                        "test    INA, mask_PINT wc       // c=1 for interrupted"
+              "if_c      jmp     #EndMainLoop"
+"//t=3"
+                        "// Deactivate the address latches again and make the"
+                        "// signal pins outputs again."
+                        "// By now, any other cogs that want to read the"
+                        "// address should have had enough time to do so."
+                        "or      OUTA, mask_AEN"
+                        "or      DIRA, mask_SIGNALS"
+"//t=5"
+                        "// The signals were retrieved during the previous"
+                        "// clock cycle. Put them on the output pins now."
+                        "// We output the signals first and then we transfer"
+                        "// the clock on the 74*374 to HIGH to let it forward"
+                        "// the signals to the 65C02."
+                        "// The flipflops need a little bit of time to settle,"
+                        "// so also check whether the 65C02 is in a read or a"
+                        "// write operation here."
+                        "// Note, the signal pins will stay on the outputs"
+                        "// for the remainder of the clock cycle, so other"
+                        "// cogs can inspect those pins instead of reading the"
+                        "// value from the hub to find out which signals were"
+                        "// last sent to the 65C02."
+                        "or      OUTA, signals       "
+                        "test    INA,  mask_RW wc        // c=0 write, c=1 read"
+                        "or      OUTA, mask_SLC                        "
+"//t=8"
+                        "// Enable the RAM depending on the R/!W output of the"
+                        "// 65C02."
+                        "// Any cogs that want to inhibit access to the RAM"
+                        "// chip (e.g. because they want to read or write"
+                        "// data directly from/to the 65C02 or they guard the"
+                        "// ROM area of memory against writing or they map an"
+                        "// I/O chip into the 65C02's memory) can do so before"
+                        "// this time, by making their own RAM outputs HIGH."
+              "if_c      andn    OUTA, mask_RAMOE        // RAM to 65C02"
+              "if_nc     andn    OUTA, mask_RAMWE        // 65C02 to RAM"
+"//t=10"
+                        "// Start Phi2 by setting the clock high."
+                        "// When running at full speed (no waitcnt) on an 80MHz"
+                        "// Propeller, Phi1 is about 13*50=650ns; on a 100MHz "
+                        "// Propeller, it's about 13*40=520ns. Both are safely"
+                        "// within the limits of the 65C02 specs."
+                        "or      OUTA, mask_CLK0"
+"//t=11"
+                        "// There's not a whole lot that we need to do during"
+                        "// Phi2: this is when the 65C02 does its work."
+                        "// We use this time to retrieve the signals from the"
+                        "// hub so we can send them to the 65C02 during the"
+                        "// next clock cycle."
+                        "// See above for timing analysis"
+                        "rdlong  signals, parm_pSignals"
+"//t=13..17 on first cycle"
+"//t=13..15 on subsequent cycles with waitcnt"
+"//t=16 on subsequent cycles without waitcnt (see timing analysis)"
+                        "// The signals variable in the hub should only contain"
+                        "// bits that pertain to the signals (or PINT, see"
+                        "// below), otherwise unexpected results will occur"
+                        "// when these are ORed to the outputs during the next"
+                        "// clock cycle."
+                        "// The signals may also have the PINT pseudo-pin set"
+                        "// to signal to this cog that it needs to stop"
+                        "// running. This pseudo-pin is not sent to the output"
+                        "// but is tested here. This mechanism makes it easier"
+                        "// for cogs running in Spin to interrupt the control"
+                        "// cog, because they aren't fast enough to set the"
+                        "// output pin safely (by waiting for us to change"
+                        "// the CLK0 from LOW to HIGH and then setting it on"
+                        "// their own outputs, which is what PASM cogs can do)"
+                        "// Test for the pseudo-pin here and leave the loop if"
+                        "// necessary"
+                        "test    signals, mask_PINT wc   // c=1 for interrupt                          "
+"//t=14..18(16)/17"
+                        "// It's possible to run a predetermined number of"
+                        "// clock cycles and then terminate the loop."
+                        "// We decrement and test the counter here."
+""
+                        "sub     counter, #1 wz          // z=1 for terminated"
+"//t=15..19(17)/18"
+                        "// The JMP instruction conditionally jumps back to"
+                        "// the beginning, to wait for the system timer."
+                        "// If the maximum number of instructions has been"
+                        "// reached, or another cog set the PINT bit in the"
+                        "// signals storage in the hub, we bail out."
+                        "// The initialization code may override the condition"
+                        "// bits in the instruction to ignore the counter (it"
+                        "// will still count, but the main loop will keep going"
+                        "// even when the counter wraps around)."
+                        "// The initialization code may also override the"
+                        "// source part of the instruction to skip over the"
+                        "// WAITCNT instruction at the beginning of the loop,"
+                        "// to make the loop run as fast as possible."
+"LoopIns                         "
+        "if_nc_and_nz    jmp     #MainLoop"
+"//t=16..20(18)/19"
+""
+""
+                        "// We dropped out of the loop"
+                        "// Make sure the last cycle's duration is the same"
+                        "// as all other cycles"
+"DropOutIns              waitcnt clock, cycletime"
+"        "
+"EndMainLoop"
+                        "// Make sure the pins have the correct direction and"
+                        "// value."
+                        "// Because we set AEN at the beginning of Phi1,"
+                        "// the address latches are enabled for a short time."
+                        "// This should not be a problem as long as other cogs"
+                        "// don't depend on AEN."
+                        "mov     DIRA, dir_INIT"
+                        "mov     OUTA, out_INIT"
+""
+                        "// Store the counter back into the hub"
+                        "wrlong  counter, parm_pCounter"
+"                        "
+                        "// The Z flag was set by the loop if it was terminated"
+                        "// after a predetermined number of instructions, and"
+                        "// the C flag was set if the code detected the"
+                        "// PINT pseudo-interrupt either as a pin held high"
+                        "// after the end of Phi2, or as a bit set in the"
+                        "// signals."
+                        "mov     retval, cmd"
+                        "muxz    retval, #con_result_RUN_TERMINATED"
+                        "muxc    retval, #con_result_RUN_INTERRUPTED"
+                        "wrlong  retval, parm_pRetVal"
+""
+                        "// Read the return value back and wait until the"
+                        "// calling cog resets it"
+":loop                   rdlong  retval, parm_pRetVal wz"
+              "if_nz     jmp     #:loop"
+                                                                       ""
+                        "// Finally, change the state and receive next command              "
+                        "jmp     #SetStopState                                  "
+""
+""
+"//============================================================================"
+"// Working variables"
+""
+                        "// Local versions of hub variables                                      "
+"state                   long    0"
+"cmd                     long    0"
+"retval                  long    0"
+"signals                 long    0"
+"addr                    long    0        "
+"data                    long    0"
+"hubaddr                 long    0"
+"hublen                  long    0"
+"clock                   long    0"
+"cycletime               long    0"
+"counter                 long    0"
+""
+                        "// Download working variables"
+"startaddr               long    0"
+"expectedaddr            long    0"
+"feedbyte                long    0"
+"                        "
+""
+"//============================================================================"
+"// Constants"
+""
+                        "// Output Initializers"
+"out_INIT                long    con_OUT_INIT    // Initial"
+"out_PHI1                long    con_OUT_PHI1    // Start of clock cycle"
+""
+                        "// Bitmask to change an instruction with an"
+                        "// 'if_nc_and_nz' condition (%0001) to an"
+                        "// 'if_nc' condition (%0011) or vice versa"
+                        "// using a MUX instruction"
+"mux_NCANDNZ_TO_NC       long    %000000_0000_0010_000000000_000000000"
+""
+                        "// Bitmask to change an instruction with an"
+                        "// 'if_never' condition (%0000) to an"
+                        "// 'if_always' condition (%1111) or vice versa"
+                        "// using a MUX instruction"
+"mux_NEVER_TO_ALWAYS     long    %000000_0000_1111_000000000_000000000"
+"                        "
+                        "// Initial direction registers"
+"dir_INIT                long    con_mask_OUTPUTS | con_mask_SIGNALS"
+"                                                  "
+                        "// Other bitmasks used in the program"
+"mask_SIGNALS            long    con_mask_SIGNALS     "
+"mask_SLC                long    (|< pin_SLC)"
+"mask_SLC_SIGNALS        long    (|< pin_SLC) | con_mask_SIGNALS"
+"mask_LED                long    con_mask_LED"
+"mask_RAMOE              long    (|< pin_RAMOE)"
+"mask_RAMWE              long    (|< pin_RAMWE)        "
+"mask_RAM                long    (|< pin_RAMOE) | (|< pin_RAMWE)"
+"mask_AEN                long    (|< pin_AEN)"
+"mask_AEN_CLK0           long    (|< pin_AEN) | (|< pin_CLK0)"
+"mask_RW                 long    (|< pin_RW)"
+"mask_CLK0               long    (|< pin_CLK0)"
+"mask_PINT               long    (|< pin_PINT)"
+"mask_RDY                long    (|< pin_RDY)"
+"mask_I2C                long    (|< pin_SCL) | (|< pin_SDA)"
+""
+                        "// Constants for download"
+"vector_NMI              long    $FFFA"
+"mask_ADDR               long    $FFFF"
+"mask_DATA               long    $FF"
+"mux_Z_TO_ALWAYS         long    %000000_0000_0101_000000000_000000000 // %1010 to %1111"
+"mask_NMI                long    (|< pin_NMI)        "
+"                                "
+""
+"//============================================================================"
+"// Parameters"
+""
+"parm_pState             long    0               // Pointer to state"
+"parm_pCmd               long    0               // Pointer to command"
+"parm_pRetval            long    0               // Pointer to result"
+"parm_pSignals           long    0               // Pointer to signals"
+"parm_pAddr              long    0               // Pointer to 6502 address       "
+"parm_pData              long    0               // Pointer to 6502 data (bus)"
+"parm_pHubAddr           long    0               // Pointer to hub address        "
+"parm_pHubLen            long    0               // Pointer to hub length"
+"parm_pCounter           long    0               // Pointer to counter"
+"parm_pCycleTime         long    0               // Pointer to cycle time        "
+""
+""
+"//============================================================================"
+"// End"
+""
+);
+
+}
+*/
+
+
+/////////////////////////////////////////////////////////////////////////////
+// TERMS OF USE: MIT LICENSE
+/////////////////////////////////////////////////////////////////////////////
+
+
+/* Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files
+ * (the "Software"), to deal in the Software without restriction,
+ * including without limitation the rights to use, copy, modify, merge,
+ * publish, distribute, sublicense, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+ 
+ 
+/////////////////////////////////////////////////////////////////////////////
+// END
+/////////////////////////////////////////////////////////////////////////////
