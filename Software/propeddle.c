@@ -108,10 +108,15 @@ propeddle_Start(void)
 
     if (result)
     {
+        static volatile int stack[P6502_STACK_SIZE];
+        
         p6502_globals.cmd       = P6502_CMD_NUM; // Invalid command
         p6502_globals.signals   = P6502_MASK_HALT;
 
-        result = (-1 < cognew(_load_start_p6502control_cog, 0));
+        // Fire up the control cog
+        // Note, the compiler generates the _load_start_identifier_cog symbol
+        // The parameter must be a pointer to the end of the stack
+        result = (-1 < cognew(_load_start_p6502control_cog, &stack[P6502_STACK_SIZE]));
         
         if (result)
         {

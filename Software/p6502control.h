@@ -28,6 +28,9 @@
 // Uncomment this to enable LED debugging
 #define P6502_LED
 
+// Required stack size in DWORDS
+#define P6502_STACK_SIZE (16)
+
 
 //===========================================================================
 // Pin usage
