@@ -327,7 +327,7 @@ PUB SendSignals
     dira[8..15]~ 
      
 PUB Clock(verbose) | mask, addr
-'@@@
+
   ' Phi1
   ' Start with the default Phi1 outputs but leave the LED unchanged
   outa := propeddle#con_OUT_PHI1 | (outa & (|< propeddle#pin_LED))

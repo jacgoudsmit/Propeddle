@@ -338,7 +338,7 @@ CON
   ' Direct Outputs
   pin_LED    = 19 ' (Optional, otherwise used for audio, video or SYNC)
   pin_RAMOE  = 20 ' 0=RAM reads to databus
-  pin_RAMWE  = 22 ' 0=RAM writes from databus
+  pin_RAMWE  = 22 ' 0=RAM written from databus
   pin_AEN    = 24 ' 0=Enables address bus on P0-P15, during CLK2=0 only
   pin_SLC    = 25 ' Signal Latch Clock (during CLK2=0 only); P8-P15 loaded on low-to-high transition
   pin_SCL    = 28 ' SCL output to EEPROM
@@ -479,6 +479,7 @@ DAT
   g_counter             long    0                       ' Counter for e.g. limited clock run
   g_cycletime           long    0                       ' Clock cycle time (normally 1_000_000)                 
 
+
 ' ROM image
   '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
   romimage    byte $EE, $F9, $FF, $4C, $F0, $FF, $00, $00, $00, $00, $F0, $FF, $F0, $FF, $F0, $FF
@@ -537,7 +538,7 @@ PUB Stop
     repeat until g_cmd == 0
 
     StopTrace
-    StopMem
+    'StopMem
         
     ' At this point, the cog is waiting to be stopped
     cogstop(g_controlcogid)
@@ -723,7 +724,7 @@ PUB StartTrace(parm_hubaddr, parm_hublen) | done
   repeat until done
 
 
-PUB StopMem
+{{PUB StopMem
 '' Stop the memory manager cog
 
   if (g_memcogid <> -1)
@@ -744,7 +745,7 @@ PUB StartMem(parm_startaddr, parm_hubaddr, parm_hublen) | done
   g_memcogid := cognew(@MemoryCog, @done)
   repeat until done
   
-  
+ }} 
 PRI Open
 ' Takes ownership of the control cog before sending a command
 
@@ -897,7 +898,17 @@ CmdShutDown
                         wrlong  cmd, parm_pCmd
 
                         ' The caller is responsible for stopping the cog
-                        jmp     #$                         
+                        ' Alternatively, the command can be set to a nonzero
+                        ' value to restart the control cog. This might be
+                        ' useful in case the hub copy of this code gets
+                        ' overwritten to reuse the memory for other purposes
+                        ' Of course, when restarting, the parameters aren't
+                        ' reinitialized because the code is not loaded from
+                        ' hub memory. Normally this should not be a problem.
+:shutdownloop
+                        rdlong  cmd, parm_pCmd wz
+              if_z      jmp     #0
+                        jmp     #:shutdownloop                         
 
 
 '============================================================================
@@ -1482,8 +1493,8 @@ TraceLoop
                         cmp     trace_parm_HubLen, #0 wz
         if_nz_and_nc    sub     trace_parm_HubLen, #1
 
-                        ' Now get the address from the 65C02 and shift the
-                        ' interesting stuff in place
+                        ' Now get the address from the 65C02
+                        ' The top 16 bits are garbage at this time
                         mov     trace_addr, INA
 
                         ' Send the data to the hub if necessary
@@ -1541,17 +1552,72 @@ trace_parm_HubLen       long    0
 
 DAT
 '============================================================================
-' Virtual Memory Cog starts here
-
-' The following PASM code can be used to implement virtual memory.
-
-' TODO:
-' For now, it only allows 1 memory area to be mapped in RAM-hub mode. The
-' code will be improved later to support more features.
+' RAM Control Cog starts here
+'
+' The following PASM code can be used to control the on-board RAM. When it
+' starts, it builds a table of 256 DWORDS at the start of cog memory, each
+' containing 16 two-bit values that are sent to the RAMWR and RAMOE outputs
+' depending on the address that's read from the 6502 when AEN is active.
+' This makes it possible to divide memory into sections of 16 bytes each.
+' Each section can either be designated as RAM, ROM or unmapped. When an
+' area is mapped as ROM, the cog makes the RAMWE output HIGH whenever an
+' address of that area is used, overriding any other cogs that want to make
+' it low, and effectively denying the write. For areas that are marked as
+' unmapped, both RAMOE and RAMWR are marked high so no other cogs can access
+' the RAM at all. Unmapped memory areas can be used by physical I/O devices
+' on the expansion bus or by emulated devices on other cogs of the Propeller.
+' The cog can be stopped at any time, which will result in the 6502 accessing
+' its entire memory area as RAM.
 
                         org     0
+
+                        ' Relocate code to make space for the table                        
+RAMControlCog
+:loop
+:relocstep              mov     RAMrelocated, RAMprereloc
+                        add     :relocstep, RAMoneone           
+                        djnz    RAMreloccounter, #:loop
+
+                        jmp     #RAMrelocated
+
+RAMoneone               long    %1_000000001        
+RAMreloccounter         long    @RAMrelocatedend - @RAMrelocated             
+RAMprereloc
+                        org     256
+RAMrelocated
+
+'============================================================================
+' Relocated code
+                        ' Fill the table with zeroes
                         
-MemoryCog
+:loop                        
+:clearstep              mov     255, #0
+                        sub     :clearstep, RAMoned
+                        djnz    RAMcounter, #:loop                        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+'============================================================================
+' Variables
+
+RAMcounter              long    256
+RAMoned                 long    %1_000000000
+
+                                                        
                         ' Let the caller know we're running
                         wrlong  mem_ffffffff, PAR
                         
@@ -1640,5 +1706,8 @@ mem_parm_StartAddr      long    0
 mem_parm_HubAddr        long    0
 mem_parm_HubLen         long    0
 
+'============================================================================
+' End
+RAMrelocatedEnd
                         fit
                                                                                                  
