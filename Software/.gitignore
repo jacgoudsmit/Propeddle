@@ -1,0 +1,6 @@
+tags
+a.out
+*.o
+*.cog
+*.map
+*.asm
