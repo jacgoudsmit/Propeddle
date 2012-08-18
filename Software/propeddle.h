@@ -70,6 +70,12 @@
 /////////////////////////////////////////////////////////////////////////////
 
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+
 //---------------------------------------------------------------------------
 // Initialize the Propeddle system
 //
@@ -302,6 +308,11 @@ propeddle_RunWait(
 // Returns FALSE if the control cog isn't running.
 bool                                    // Returns TRUE=success FALSE=failure
 propeddle_RunEnd(void);
+
+
+#ifdef __cplusplus
+};
+#endif
 
 
 /////////////////////////////////////////////////////////////////////////////
