@@ -111,6 +111,7 @@ typedef enum
 #endif
     pin_RAMOE = 20,                     // Read from RAM
     pin_RAMWE = 22,                     // Write to RAM
+    pin_RW = 23,                        // Read / Not Write
     pin_AEN = 24,                       // Enable Address bus to P0-P15
     pin_SLC = 25,                       // Signal Latch Clock; 0->1 to transfer signals
     pin_SCL = 28,                       // EEPROM clock output
@@ -179,6 +180,8 @@ typedef enum
     P6502_STATE_STOPPED,
     P6502_STATE_RUNNING,
     P6502_STATE_DISCONNECTED,
+    
+    P6502_STATE_NUM
 }   P6502_STATE;
 
 
@@ -214,15 +217,15 @@ extern volatile HUBDATA struct P6502_GLOBALS_T
 {
     P6502_STATE     state;              // Current state of the control cog
     P6502_CMD       cmd;                // Current command
-    long            retval;             // Result of command
-    long            signals;            // Current signal outputs
-    long            addr;               // 6502 address bus value for command
-    long            data;               // 6502 data bus value for command
-    long            hubaddr;            // Hub address for command
-    long            hublen;             // Hub length for command
-    long            counter;            // Counter used by command
-    long            cycletime;          // Clock cycle time
-    
+    unsigned        retval;             // Result of command
+    unsigned        signals;            // Current signal outputs
+    unsigned        addr;               // 6502 address bus value for command
+    unsigned        data;               // 6502 data bus value for command
+    unsigned        hubaddr;            // Hub address for command
+    unsigned        hublen;             // Hub length for command
+    unsigned        counter;            // Counter used by command
+    unsigned        cycletime;          // Clock cycle time
+
 }   p6502_globals;
 
 

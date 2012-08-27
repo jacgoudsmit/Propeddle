@@ -21,8 +21,9 @@
 /////////////////////////////////////////////////////////////////////////////
 
 
-#define P6502_DELAY_MAINLOOP_INIT (88)  // Main loop initial loop min duration (clocks)
-#define P6502_DELAY_MAINLOOP_MINDELAY (80) // Main loop subsequent loops min duration (clocks)
+// Delay constants for main loop, in Propeller clock cycles
+#define P6502_DELAY_MAINLOOP_INIT (91)      // Initial loop min duration
+#define P6502_DELAY_MAINLOOP_MINDELAY (80)  // Subsequent loops min duration
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -30,7 +31,7 @@
 /////////////////////////////////////////////////////////////////////////////
 
 
-volatile HUBDATA struct P6502_GLOBALS_T p6502_globals =
+HUBDATA struct P6502_GLOBALS_T volatile p6502_globals =
 {
     .state = P6502_STATE_UNINITIALIZED,
 };
@@ -85,7 +86,7 @@ static void sendsignals(unsigned signals)
     [mask_SLC_SIGNALS]      "rC"        (P6502_MASK_SIGNALS | pmask(pin_SLC)),
     [mask_SLC]              "rC"        (pmask(pin_SLC))
 :
-);
+    );
 }
 
 
@@ -107,7 +108,7 @@ static void cmd_shutdown(void)
     [out_INIT]              "rC"        (P6502_MASK_OUT_INIT),
     [mask_SLC]              "rC"        (pmask(pin_SLC))
 :
-);
+    );
 
     p6502_globals.cmd = P6502_CMD_NONE; // Let caller know we're stopping
     
@@ -149,6 +150,273 @@ static P6502_CMD cmd_disconnect_i2c(void)
 _NATIVE
 static void cmd_run(void)
 {
+    // Let the calling cog know we're working
+    p6502_globals.retval = 0;
+    
+    // Copy input parameters from globals
+    unsigned cycletime = p6502_globals.cycletime;
+    unsigned counter   = p6502_globals.counter;
+    
+    // Output parameters
+    volatile unsigned *psignals = &p6502_globals.signals;
+        
+    // Locals
+    unsigned signals = *psignals;
+    unsigned retval;
+    unsigned clock;
+
+    __asm__ __volatile__(
+                    // Read the time that each 6502 cycle should take.
+                    // Store this in the variable that's used to
+                    // increment the clock in the waitcnt instruction.
+                    // Make sure the value is at least equal to the
+                    // minimum execution time for non-first loops.
+"\n                 min     %[cycletime], %[MINDELAY]"
+"\n"
+                    // Initialize the clock to cycle time, but minimize
+                    // this by the minimum time for the first cycle
+                    // Note, CNT is added just before jumping into the
+                    // loop.
+"\n                 mov     %[clock],   %[cycletime]"
+"\n                 min     %[clock],   %[MININITDELAY]"
+"\n"
+                    // Read the number of clock cycles to execute.
+                    // Depending on whether the count is 0, enable or
+                    // disable the check at the end of the loop.
+                    // In other words, if z=1 here, change the
+                    // djnz instruction so that the result is never
+                    // written.
+                    // These instructions also reset the Z flag so it's
+                    // set to 0 if the firsst iteration of the loop
+                    // exits on a pseudo-interrupt right away.
+"\n                 cmp     %[counter], #0 wz"
+"\n                 muxnz   LoopIns,    %[mux_R] wz" // reset Z flag
+"\n"
+                    // Add the system clock to the local clock. This
+                    // should be done just before jumping into the loop.
+"\n                 add     %[clock],   CNT"
+"\n                 jmp     #StartMainLoop"
+"\n"
+//===========================================================================
+// Main loop: generate clock cycles to let the 65C02 run its program
+
+// NOTE: The following code was meticulously constructed to generate a loop
+// that executes at 1MHz when the Propeller runs at 80MHz. When the Propeller
+// runs at 100MHz, the 65C02 can be run at up to 1.25MHz.
+// The timing was based on the 65C02 datasheet from Western Design Center.
+//
+// It is important to keep in mind that other cogs may depend on the timing
+// of this cog too; for example while this cog doesn't actually read the
+// address bus, it enables the address bus at a certain point in time, and
+// other cogs can only read it during that short time.
+//
+// Timings in comments are Propeller clock cycles; t=0 corresponds to the
+// start of Phi1 (CLK0 changes from high to low). t0 represents timing on
+// the first iteration, tn represents timing on subsequent iterations. All
+// timings are based on a minimum duration for the waitcnt instruction.
+//
+// The first iteration of the loop may take longer than subsequent
+// iterations because the hub instruction may take longer during the first
+// execution of the code. However, after the first iteration, all subsequent
+// iterations take the same amount of time: 80 Propeller clock cycles. A
+// timing analysis document is available to prove this.
+"\nMainLoop"
+                    // Wait for the end of the requested cycle time
+                    // Initialization may change the instruction at the end
+                    // of the loop so that this instruction is skipped.
+//t0=67..82
+//tn=67
+"\n                 waitcnt %[clock],   %[cycletime]"
+"\n"
+                    // Turn off the Write Enable to the RAM
+                    // We could do this at the same time as setting the
+                    // clock low, however it's not possible to change two
+                    // bits to different values at the same time without
+                    // touching other bits, except with an xor instruction
+                    // and in order to use an xor we would need to be
+                    // sure that the current bit is 0, but this is only the
+                    // case if the 6502 is in a write-operation.
+                    // We have to disable the RAM before setting the clock,
+                    // because if we'd do it the other way around, there
+                    // would be a chance that the 6502 changes the address
+                    // bus and clobbers the RAM.
+//t0=72..87
+//tn=72
+"\n                 or      OUTA,       %[mask_RAMWE]"
+"\n"
+                    // Set the clock LOW
+                    // This starts the PHI1 part of the clock cycle, unless
+                    // one of the other cogs makes the clock high too.
+                    // We will check for that next.
+//t0=76..91
+//tn=76
+"\n                 andn    OUTA,       %[mask_CLK0]"
+"\n"
+                    // Check if another cog is keeping the clock in the high
+                    // state, indicating that they want us to stop running.
+                    // If that is the case, we break out of the loop here.
+                    // Because the outputs are retained between our change of
+                    // the CLK0 output and here, it's possible to restart the
+                    // loop without need to worry about the 6502.
+                    // The other cogs that depend on the timing of this cog
+                    // can also safely keep running: they are just as unaware
+                    // of the fact that we couldn't change the CLK0 output to
+                    // low as the 6502 is.
+//t0=0
+//tn=0
+"\nStartMainLoop"
+"\n                 test    INA,        %[mask_PINT] wc"
+"\n     if_c        jmp     #EndMainLoop"
+"\n"
+                    // Initialize all output signals:
+                    // - The RAM is disabled; this has to happen a short time
+                    //   after setting the clock low, so that the 6502 has
+                    //   time to read the data bus. Normally it would be
+                    //   sufficient to turn the RAM off at the same time as
+                    //   switching the clock, however this is impossible
+                    //   (see above).
+                    // - The signals in the OUTA register are initialized to
+                    //   0 so it's possible to OR the signals from the hub in
+                    //   there.
+                    // - The clock for the signal flipflops (SLC) is reset so
+                    //   that all it takes to get them to the 6502 again is
+                    //   to turn SLC on again.
+                    // - The address buffers are enabled so other cogs can
+                    //   read the address from P0..P15
+//t0=8
+//tn=8                    
+"\n                 mov     OUTA,       %[mask_PHI1]"
+"\n"
+                    // It takes a little while before the address can be read
+                    // reliably because of setup time and propagation delays.
+                    // Also we want to give the other cogs some time to pick
+                    // up the address, so we check the read/write output of
+                    // the 6502 here, and then wait for one instruction time.
+//t0=12
+//tn=12
+"\n                 test    INA,        %[mask_RW] wc" // c=1 read, c=0 write
+"\n                 nop"
+"\n"
+                    // Turn the address buffers off again, and output the 
+                    // signals to the flip-flops on P8..P15. They need a little
+                    // time to settle and we also want to give other cogs the
+                    // opportunity to override them so there's some extra
+                    // delay in there.
+//t0=20
+//tn=20
+"\n                 or      OUTA,       %[mask_AEN]"
+"\n                 or      DIRA,       %[mask_SIGNALS]"
+"\n                 or      OUTA,       %[signals]"
+"\n                 nop"
+"\n"
+                    // Clock the flip-flops to send the signals to the 6502.
+//t0=36
+//tn=36
+"\n                 or      OUTA,       %[mask_SLC]"
+"\n"
+                    // Set the clock HIGH
+                    // This starts the PHI2 part of the clock cycle.
+                    // Note: it's possible to combine this instruction with
+                    // the previous one, but the SO signal is picked up by
+                    // the 6502 at the start of PHI2 (the other signals are
+                    // picked up later) so by clocking the flipflops before
+                    // switching CLK0, we guarantee that the delay for all
+                    // signals is minimal.
+//t0=40
+//tn=40
+"\n                 or      OUTA,       %[mask_CLK0]"
+"\n"
+                    // Remove the signals from P8..P15
+//t0=44
+//tn=44
+"\n                 andn    DIRA,       %[mask_SIGNALS]"
+"\n"
+                    // Get the signals from the hub
+                    // The signals must be clean, i.e. no non-signal bits
+                    // should be set.
+//t0=48
+//tn=48
+"\n                 rdlong  %[signals], %[psignals]"                    
+"\n"
+                    // Enable the RAM chip, either for write or for read,
+                    // depending on whether the 6502 is in read or write
+                    // mode. By now the other cogs should have had plenty
+                    // of time to check the address, and possibly override
+                    // the RAM outputs (i.e. turn them off) and take
+                    // their own actions, such as redirecting to/from the
+                    // hub or making sure the RAM cannot be overwritten.
+//t0=55..62
+//tn=55
+"\n     if_nc       andn    OUTA, %[mask_RAMWE]"
+"\n     if_c        andn    OUTA, %[mask_RAMOE]"
+"\n"
+                    // We reached the end of the loop.
+                    // If we're supposed to execute a limited number of
+                    // instructions, the counter is decreased here and we
+                    // leave the loop when it reaches zero.
+                    // If we run without limitation, the initialization
+                    // code changes the instruction so it doesn't store
+                    // the result (NR), so this loops forever.
+//t0=59..66
+//tn=59
+"\nLoopIns"
+"\n                 djnz    %[counter], #MainLoop wz"
+"\n"
+
+//===========================================================================
+    
+                    // We dropped out of the loop
+                    // Make sure the last cycle's duration is the same
+                    // as all other cycles
+"\n                 waitcnt %[clock],   %[cycletime]"
+"\nEndMainLoop"
+"\n"
+                    // The Z flag was set by the loop if it was terminated
+                    // after a predetermined number of instructions.
+                    // Otherwise, it was terminated by pseudo-interrupt.
+"\n                 mov     %[retval],  #0"
+"\n                 muxz    %[retval],  #1"     // retval & 1 indicates terminated
+
+:
+    [counter]               "+rC"   (counter),
+    [retval]                "=rC"   (retval)
+:
+    // Locals
+    [clock]                 "rC"    (clock),
+    [cycletime]             "rC"    (cycletime),
+    [signals]               "rC"    (signals),
+    [psignals]              "rC"    (psignals),
+    
+    // Masks
+    [dir_INIT]              "rC"    (P6502_MASK_DIR_INIT),
+    [out_INIT]              "rC"    (P6502_MASK_OUT_INIT),
+    [mux_R]                 "rC"    (0b00000000100000000000000000000000),
+    [mux_NCANDNZ_TO_NC]     "rC"    (0b00000000000010000000000000000000),
+    [mask_AEN]              "rC"    (pmask(pin_AEN)),
+    [mask_CLK0]             "rC"    (pmask(pin_CLK0)),
+    [mask_PHI1]             "rC"    (P6502_MASK_OUT_PHI1),
+    [mask_PINT]             "rC"    (pmask(pin_PINT)),
+    [mask_RAMOE]            "rC"    (pmask(pin_RAMOE)),
+    [mask_RAMWE]            "rC"    (pmask(pin_RAMWE)),
+    [mask_RW]               "rC"    (pmask(pin_RW)),
+    [mask_SIGNALS]          "rC"    (P6502_MASK_SIGNALS),
+    [mask_SLC]              "rC"    (pmask(pin_SLC)),
+    
+    // Immediates
+    [MINDELAY]              "i"     (P6502_DELAY_MAINLOOP_MINDELAY),
+    [MININITDELAY]          "i"     (P6502_DELAY_MAINLOOP_INIT)
+:
+    );
+    
+    // Store locals back in global struct
+    p6502_globals.counter = counter;
+    p6502_globals.retval  = retval;
+    
+    // Wait until calling cog picks up the return value
+    while (p6502_globals.retval)
+    {
+        // Nothing to do here
+    }
 }
 
 
