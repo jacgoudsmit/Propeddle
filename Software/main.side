@@ -3,6 +3,7 @@ p6502control.h
 p6502control.cogc
 propeddle.c
 propeddle.h
+p6502features.h
 >compiler=C
 >memtype=lmm
 >optimize=-Os

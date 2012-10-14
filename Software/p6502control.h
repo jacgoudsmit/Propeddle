@@ -13,6 +13,7 @@
 /////////////////////////////////////////////////////////////////////////////
 
 
+#include "p6502features.h"
 #include <propeller.h>
 
 
@@ -25,11 +26,8 @@
 // The lowest supported version is 8.
 #define P6502_HWREV = 8
 
-// Uncomment this to enable LED debugging
-#define P6502_LED
-
 // Required stack size in DWORDS
-#define P6502_STACK_SIZE (16)
+#define P6502_STACK_SIZE (4)
 
 
 //===========================================================================
@@ -171,36 +169,34 @@ typedef enum
 
 
 //===========================================================================
-// States
-//===========================================================================
-
-typedef enum
-{
-    P6502_STATE_UNINITIALIZED,
-    P6502_STATE_STOPPED,
-    P6502_STATE_RUNNING,
-    P6502_STATE_DISCONNECTED,
-    
-    P6502_STATE_NUM
-}   P6502_STATE;
-
-
-//===========================================================================
 // Commands
 //===========================================================================
 
 typedef enum
 {
-    P6502_CMD_NONE,
-    P6502_CMD_SHUTDOWN,
-    P6502_CMD_LED_ON,
-    P6502_CMD_LED_OFF,
-    P6502_CMD_LED_TOGGLE,
-    P6502_CMD_GET_INA,
-    P6502_CMD_GET_OUTA,
-    P6502_CMD_SET_SIGNALS,
-    P6502_CMD_DISCONNECT_I2C,
-    P6502_CMD_RUN,
+    P6502_CMD_NONE,                     // No command (previous cmd done)
+    
+#ifdef P6502_CONTROLCOG_SHUTDOWN
+    P6502_CMD_SHUTDOWN,                 // Shut down control cog
+#endif
+    
+#ifdef P6502_LED
+    P6502_CMD_LED_ON,                   // Turn the LED on
+    P6502_CMD_LED_OFF,                  // Turn the LED off
+    P6502_CMD_LED_TOGGLE,               // Toggle the LED
+#endif
+
+#ifdef P6502_CONTROLCOG_DEBUG
+    P6502_CMD_GET_INA,                  // Get input register
+    P6502_CMD_GET_OUTA,                 // Get output register
+#endif
+
+#ifdef P6502_CONTROLCOG_I2C
+    P6502_CMD_DISCONNECT_I2C,           // Disconnect from I2C bus
+#endif
+
+    P6502_CMD_SET_SIGNALS,              // Set signals in stopped mode
+    P6502_CMD_RUN,                      // Run full speed until interrupted
 
     P6502_CMD_NUM
 }   P6502_CMD;
@@ -215,7 +211,6 @@ typedef enum
 // this data struct, stored as singleton in the hub.
 extern volatile HUBDATA struct P6502_GLOBALS_T
 {
-    P6502_STATE     state;              // Current state of the control cog
     P6502_CMD       cmd;                // Current command
     unsigned        retval;             // Result of command
     unsigned        signals;            // Current signal outputs

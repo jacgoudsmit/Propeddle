@@ -64,6 +64,8 @@
 #include <propeller.h>
 #include <stdbool.h>
 
+#include "p6502features.h"
+
 
 /////////////////////////////////////////////////////////////////////////////
 // PUBLIC FUNCTIONS
@@ -79,8 +81,9 @@ extern "C"
 //---------------------------------------------------------------------------
 // Initialize the Propeddle system
 //
-// This uses one cog and one lock. If they are not both available, the
-// function returns false and the cog is not started.
+// This uses one cog and one lock if successful. If they are not both 
+// available, the function returns false, the cog is not started and no lock
+// is allocated.
 //
 // If the control cog is already started, it's stopped and restarted. Note:
 // It's not recommended to stop and restart the Propeddle system unless you
@@ -102,7 +105,8 @@ propeddle_Start(void);
 //---------------------------------------------------------------------------
 // Stop the control cog
 //
-// Stops the Propeddle control cog and frees up the cog and the lock.
+// Stops the Propeddle control cog and frees up the cog and the lock. If the
+// control cog wasn't started before, this has no effect.
 //
 // If the control cog is in RUNNING state, it is changed to STOPPED state
 // first by interrupting it (this influences other cogs that might be 
@@ -114,14 +118,10 @@ propeddle_Start(void);
 // restarted.
 //
 // This function is not reentrant: only one cog should call this function.
+#ifdef P6502_CONTROLCOG_SHUTDOWN
 void
 propeddle_Stop(void);
-
-
-//---------------------------------------------------------------------------
-// Check if the control cog is running
-bool                                    // Returns TRUE=running FALSE=not
-propeddle_IsStarted(void);
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -133,8 +133,10 @@ propeddle_IsStarted(void);
 // The function waits until it can take the lock.
 //
 // Returns FALSE if the control cog is not running.
+#ifdef P6502_LED
 bool                                    // Returns TRUE=success FALSE=failure
 propeddle_LedOn(void);
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -146,8 +148,10 @@ propeddle_LedOn(void);
 // The function waits until it can take the lock.
 //
 // Returns FALSE if the control cog is not running.
+#ifdef P6502_LED
 bool                                    // Returns TRUE=success FALSE=failure
 propeddle_LedOff(void);
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -158,8 +162,10 @@ propeddle_LedOff(void);
 //
 // The function waits until the cog is in STOPPED state and until it can
 // take the lock. It returns false if the control cog is not running.
+#ifdef P6502_LED
 bool                                    // Returns TRUE=success FALSE=failure
 propeddle_LedToggle(void);
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -170,8 +176,11 @@ propeddle_LedToggle(void);
 // The function waits until it can take the lock.
 //
 // Returns 0 if the control cog is not running.
-unsigned                                // Returns INA from the control cog
-propeddle_GetINA(void);
+#ifdef P6502_DEBUG
+bool                                    // Returns TRUE=success FALSE=failure
+propeddle_GetINA(
+  unsigned *pvalue);                    // Value of INA of control cog
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -182,36 +191,11 @@ propeddle_GetINA(void);
 // The function waits until it can take the lock.
 //
 // Returns 0 if the control cog is not running.
-unsigned                                // Returns OUTA from the control cog
-propeddle_GetOUTA(void);
-
-
-//---------------------------------------------------------------------------
-// Change the value of the signal pins
-//
-// This can be used for debugging. Use of this function is discouraged
-// because it requires knowledge about the hardware.
-//
-// This can be used at any time but changing the state to RUNNING at the
-// same time that this function is executing may result in this function 
-// getting stuck. 
-//
-// Returns false if the control cog isn't running
+#ifdef P6502_DEBUG
 bool                                    // Returns TRUE=success FALSE=failure
-propeddle_SetSignals(unsigned sigmask); // Signal mask
-
-
-//---------------------------------------------------------------------------
-// Get the value of the signal pins
-//
-// This can be used for debugging. Use of this function is discouraged
-// because it requires knowledge about the hardware.
-//
-// This can be used at any time.
-//
-// The result is undefined if the control cog isn't running
-unsigned                                // Returns signal mask
-propeddle_GetSignals(void);
+propeddle_GetOUTA(
+  unsigned *pvalue);                    // Value of OUTA of control cog
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -224,8 +208,10 @@ propeddle_GetSignals(void);
 // The function waits until it can take the lock.
 //
 // Returns FALSE if the control cog is not running.
+#ifdef P6502_CONTROLCOG_I2C
 bool                                    // Returns TRUE=success FALSE=failure
 propeddle_DisconnectI2C(void);
+#endif
 
 
 //---------------------------------------------------------------------------
@@ -270,26 +256,20 @@ propeddle_Run(
 
 
 //---------------------------------------------------------------------------
-// Wait until control cog stops while in RUNNING state, or until timeout
+// Get result of a Run operation
 //
-// This can be used in RUNNING state (only) to wait for the control cog to
-// finish running the predetermined number of cycles, or the given timeout.
+// This should be used to check if the control cog has stopped running, and
+// (if it has) to get some information about the run.
 //
-// If the control cog doesn't finish before the timeout, it is kept in the
-// RUNNING state (i.e. it's not forced to stop). If the control cog DOES
-// finish, the state is changed back to STOPPED and other cogs can send
-// commands again.
+// The function should be called successfully at least once, before it's
+// possible to run one of the ACCEPTING commands again.
 //
-// Note, you should call this function repeatedly while the cog is in
-// RUNNING state, otherwise other cogs will never be able to send commands
-// again. To accomplish an infinite timeout, just execute this function
-// in an infinite for-loop with a timeout value of 0xFFFFFFFF.
-//
-// Returns TRUE if the cog is back in STOPPED state (or if the function
-// was called in error), FALSE if it's still running after the timeout.
-bool                                    // Returns TRUE=stopped FALSE=timeout
-propeddle_RunWait(
-    unsigned timeout);                  // Time-out in Propeller cycles
+// Returns FALSE if the control cog is not running.
+bool                                    // Returns TRUE=success FALSE=failure
+propeddle_GetRunResult(
+    bool *pfinished,                    // Optional: FALSE=still running
+    bool *pinterrupted,                 // Optional: set true if interrupted
+    unsigned *pcounter);                // Optional: cycle counter
 
 
 //---------------------------------------------------------------------------

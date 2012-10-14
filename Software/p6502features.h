@@ -1,47 +1,41 @@
 /*
- * propeddle.h
+ * p6502features.h
  *
- * Library that can be used to control the Propeddle hardware.
- *
- * This is the "top level" library of what a software-defined
- * computer would use to implement itself.
+ * Macros that control which features are compiled
+ * You may have to modify this file depending on your project
  *
  * (C) Copyright 2011-2012 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
-
-
-/////////////////////////////////////////////////////////////////////////////
-// INCLUDES
-/////////////////////////////////////////////////////////////////////////////
-
-
-#include "propeddle.h"
-
+ 
 
 /////////////////////////////////////////////////////////////////////////////
-// FUNCTIONS
+// MACROS
 /////////////////////////////////////////////////////////////////////////////
 
 
-int main(int argc, char **argv)
-{
-    unsigned i;
-    
-    propeddle_Start();
-    
-    propeddle_LedOn();
-    
-    for(i = 0; i < 10; i++) 
-    {
-        propeddle_LedToggle();
-        waitcnt(_CNT + _CLKFREQ);
-    }
-    
-    propeddle_Stop();
-    
-    return 0;
-}
+// Uncomment this if you want to use the LED, e.g. for testing.
+// Note, the LED may use a pin that conflicts with VGA out
+#define P6502_LED
+
+// Uncomment this if you need to shut down the control cog.
+#define P6502_CONTROLCOG_SHUTDOWN
+
+// Uncomment this if you want the debugging code in the control cog:
+// In most cases you shouldn't need this
+#define P6502_CONTROLCOG_DEBUG
+
+// Uncomment this if you need the I2C bus (pins 28 and 29) for any purpose
+// other than booting from the EEPROM. If so, you have to stop the 6502 and
+// call the disconnect function.
+#define P6502_CONTROLCOG_I2C
+
+// Uncomment this if you will be calling the functions in propeddle.h from
+// more than one cog. If not, you can save a lock.
+#define P6502_USE_LOCK
+
+// Uncomment this to implement state checks on entry of each API function
+#define P6502_CHECK_STATE
 
 
 /////////////////////////////////////////////////////////////////////////////
