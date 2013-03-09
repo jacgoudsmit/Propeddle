@@ -51,9 +51,11 @@
  *      (SCL) and the other I2C pin (SDA) is held HIGH by the control cog to
  *      prevent activating other devices such as the boot EEPROM.
  *
- * (C) Copyright 2011-2012 Jac Goudsmit
+ * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
+
+#pragma once
 
 
 /////////////////////////////////////////////////////////////////////////////

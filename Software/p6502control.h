@@ -3,10 +3,12 @@
  *
  * Internal Types and macros for the Propeddle system
  *
- * (C) Copyright 2011-2012 Jac Goudsmit
+ * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
 
+#if !defined(_P6502CONTROL_H) && defined(INCLUDING)
+#define _P6502CONTROL_H
 
 /////////////////////////////////////////////////////////////////////////////
 // INCLUDES
@@ -79,7 +81,7 @@ typedef enum
     pin_RES = 14,                       // Reset
     pin_SO = 15,                        // Set Overflow
 
-    // Limited VGA: 1 bit (monochrome) or rewired (3 bits instead of 6) 
+    // VGA: 1 bit (monochrome) or limited color (3 rewired bits instead of 6) 
     // VSYNC and HSYNC are at the usual pin offsets, and so are Green MSB and
     // Blue MSB. However because we don't have enough pins for 6-bis VGA and
     // because we wanted to stay compatible with TV out, Red MSB was moved to
@@ -103,23 +105,24 @@ typedef enum
     pin_TV2 = pin_TV+2,
     pin_AUD = pin_TV+3,
 
-    // Other outputs
+    // Other inputs and outputs
 #ifdef P6502_LED
     pin_LED = 19,                       // NOTE: conflicts with VGA and TV-audio
 #endif
-    pin_RAMOE = 20,                     // Read from RAM
-    pin_RAMWE = 22,                     // Write to RAM
-    pin_RW = 23,                        // Read / Not Write
-    pin_AEN = 24,                       // Enable Address bus to P0-P15
-    pin_SLC = 25,                       // Signal Latch Clock; 0->1 to transfer signals
-    pin_SCL = 28,                       // EEPROM clock output
-    pin_CLK0 = pin_SCL,                 // Clock is shared between EEPROM and 6502
-    pin_PINT = pin_CLK0,                // Pseudo-interrupt pin, used internally
-    pin_SDA = 29,                       // EEPROM data; always 1 during normal ops
+    pin_RAMOE = 20,                     // [out] Read from RAM
+    pin_RAMWE = 22,                     // [out] Write to RAM
+    pin_RW = 23,                        // [in]  Read / Not Write
+    pin_AEN = 24,                       // [out] Enable Address bus to P0-P15
+    pin_SLC = 25,                       // [out] Signal Latch Clock; 0->1 to transfer signals
+    pin_SCL = 28,                       // [out] EEPROM clock output
+    pin_CLK0 = pin_SCL,                 // [out] Clock is shared between EEPROM and 6502
+    pin_PINT = pin_CLK0,                // [out] Pseudo-interrupt pin, used internally
+    pin_SDA = 29,                       // [out] EEPROM data; always 1 during normal ops
 
     // Serial port
-    pin_TX = 30,
-    pin_RX = 31,
+    pin_TX = 30,                        // Out
+    pin_RX = 31,                        // In
+    
 } pin;
 
 
@@ -148,14 +151,17 @@ typedef enum
 // Data bus
 #define P6502_MASK_DATA     (pmask(pin_D0) | pmask(pin_D1) | pmask(pin_D2)  | pmask(pin_D3)  | pmask(pin_D4)  | pmask(pin_D5)  | pmask(pin_D6)  | pmask(pin_D7))
 // Address bus
-#define P6502_MASK_ADDR     (pmask(pin_A0) | pmask(pin_A1) | pmask(pin_A2)  | pmask(pin_A3)  | pmask(pin_A4)  | pmask(pin_A5)  | pmask(pin_A6)  | pmask(pin_A7) | \
-                             pmask(pin_A8) | pmask(pin_A9) | pmask(pin_A10) | pmask(pin_A11) | pmask(pin_A12) | pmask(pin_A13) | pmask(pin_A14) | pmask(pin_A15))
+#define P6502_MASK_ADDR_LO  (pmask(pin_A0) | pmask(pin_A1) | pmask(pin_A2)  | pmask(pin_A3)  | pmask(pin_A4)  | pmask(pin_A5)  | pmask(pin_A6)  | pmask(pin_A7))
+#define P6502_MASK_ADDR_HI  (pmask(pin_A8) | pmask(pin_A9) | pmask(pin_A10) | pmask(pin_A11) | pmask(pin_A12) | pmask(pin_A13) | pmask(pin_A14) | pmask(pin_A15))
+#define P6502_MASK_ADDR     (P6502_MASK_ADDR_LO | P6502_MASK_ADDR_HI)
 // I2C bus
 #define P6502_MASK_I2C      (pmask(pin_SCL) | pmask(pin_SDA))
+// CLK0 and SLC at the same time
+#define P6502_MASK_CLK0_SLC (pmask(pin_CLK0) | pmask(pin_SLC))
 
 // Initial values for direction register
-#define P6502_MASK_DIR_INIT (P6502_MASK_OUTPUTS | P6502_MASK_SIGNALS)
-// Initial values of output pins
+#define P6502_MASK_DIR_INIT (P6502_MASK_OUTPUTS)
+// Initial values of output pins, corresponding to the end of Phi2, except signals
 #define P6502_MASK_OUT_INIT (pmask(pin_CLK0) | pmask(pin_AEN) | pmask(pin_SDA) | P6502_MASK_RAM)
 // Initial values of output pins at beginning of PHI1 (first half of clock cycle)
 #define P6502_MASK_OUT_PHI1 (pmask(pin_SDA) | P6502_MASK_RAM)
@@ -164,68 +170,55 @@ typedef enum
 
 
 /////////////////////////////////////////////////////////////////////////////
-// TYPES
-/////////////////////////////////////////////////////////////////////////////
-
-
-//===========================================================================
-// Commands
-//===========================================================================
-
-typedef enum
-{
-    P6502_CMD_NONE,                     // No command (previous cmd done)
-    
-#ifdef P6502_CONTROLCOG_SHUTDOWN
-    P6502_CMD_SHUTDOWN,                 // Shut down control cog
-#endif
-    
-#ifdef P6502_LED
-    P6502_CMD_LED_ON,                   // Turn the LED on
-    P6502_CMD_LED_OFF,                  // Turn the LED off
-    P6502_CMD_LED_TOGGLE,               // Toggle the LED
-#endif
-
-#ifdef P6502_CONTROLCOG_DEBUG
-    P6502_CMD_GET_INA,                  // Get input register
-    P6502_CMD_GET_OUTA,                 // Get output register
-#endif
-
-#ifdef P6502_CONTROLCOG_I2C
-    P6502_CMD_DISCONNECT_I2C,           // Disconnect from I2C bus
-#endif
-
-    P6502_CMD_SET_SIGNALS,              // Set signals in stopped mode
-    P6502_CMD_RUN,                      // Run full speed until interrupted
-
-    P6502_CMD_NUM
-}   P6502_CMD;
-
-
-/////////////////////////////////////////////////////////////////////////////
 // DATA
 /////////////////////////////////////////////////////////////////////////////
 
 
-// There can never be more than one control cog, and it's controlled by
-// this data struct, stored as singleton in the hub.
-extern volatile HUBDATA struct P6502_GLOBALS_T
-{
-    P6502_CMD       cmd;                // Current command
-    unsigned        retval;             // Result of command
-    unsigned        signals;            // Current signal outputs
-    unsigned        addr;               // 6502 address bus value for command
-    unsigned        data;               // 6502 data bus value for command
-    unsigned        hubaddr;            // Hub address for command
-    unsigned        hublen;             // Hub length for command
-    unsigned        counter;            // Counter used by command
-    unsigned        cycletime;          // Clock cycle time
-
-}   p6502_globals;
-
+// The signals to the 6502 are continuously updated from this global
+// variable while we run it.
+// Only the signal bits should be set, all other bits should remain zero.
+extern volatile HUBDATA unsigned Signals;
 
 // Automatically generated symbol containing startup code for this module
-extern unsigned _load_start_p6502control_cog[];
+//extern unsigned _load_start_p6502control_cog[];
+
+
+/////////////////////////////////////////////////////////////////////////////
+// CODE
+/////////////////////////////////////////////////////////////////////////////
+
+
+//---------------------------------------------------------------------------
+// Initialize the system
+//
+// This should be called first, before calling any other functions
+void p6502control_Init(void);
+
+
+//---------------------------------------------------------------------------
+// Load data
+//
+// Loads a block of data from the hub into the RAM
+unsigned                                // Returns 0=success, other=interrupt
+P6502control_Load(
+    void *pSrc,                         // Source hub address
+    unsigned short pTarget,             // Address in 6502 space
+    size_t size);                       // Length in bytes
+  
+  
+//---------------------------------------------------------------------------
+// Run
+//
+// Runs the 6502 at given speed until number of given clocks are reached,
+// or until another cog interrupts by holding the clock high when the control
+// cog wants to make it low.
+//
+// If the cycle time is too low, it's adjusted automatically to make the
+// system run at the maximum speed.
+unsigned                                // Returns 0=done, other=interrupt
+P6502control_Run(
+    unsigned nClockCount,               // Number of clock cycles, 0=infinite
+    unsigned nCycleTime);               // Num Prop cycles per 6502 cycles
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -257,3 +250,5 @@ extern unsigned _load_start_p6502control_cog[];
 /////////////////////////////////////////////////////////////////////////////
 // END
 /////////////////////////////////////////////////////////////////////////////
+
+#endif

@@ -1,7 +1,7 @@
 /*
  * propeddle.c 
  *
- * (C) Copyright 2011-2012 Jac Goudsmit
+ * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
 
@@ -197,7 +197,8 @@ propeddle_Start(void)
         static volatile int stack[P6502_STACK_SIZE];
         
         p6502_globals.cmd       = P6502_CMD_NUM; // Invalid command
-        p6502_globals.signals   = P6502_MASK_HALT;
+
+        Signals                 = P6502_MASK_HALT;
 
         // Fire up the control cog
         // Note, the compiler generates the _load_start_identifier_cog symbol

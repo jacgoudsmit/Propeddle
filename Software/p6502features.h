@@ -4,10 +4,12 @@
  * Macros that control which features are compiled
  * You may have to modify this file depending on your project
  *
- * (C) Copyright 2011-2012 Jac Goudsmit
+ * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
- 
+
+#if !defined(_P6502FEATURES_H) && defined(INCLUDING)
+#define _P6502FEATURES_H
 
 /////////////////////////////////////////////////////////////////////////////
 // MACROS
@@ -17,6 +19,9 @@
 // Uncomment this if you want to use the LED, e.g. for testing.
 // Note, the LED may use a pin that conflicts with VGA out
 #define P6502_LED
+
+// Uncomment this if you need to download data to the Propeddle RAM.
+#define P6502_CONTROLCOG_DOWNLOAD
 
 // Uncomment this if you need to shut down the control cog.
 #define P6502_CONTROLCOG_SHUTDOWN
@@ -67,3 +72,5 @@
 /////////////////////////////////////////////////////////////////////////////
 // END
 /////////////////////////////////////////////////////////////////////////////
+
+#endif

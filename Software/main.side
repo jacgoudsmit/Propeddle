@@ -5,8 +5,9 @@ propeddle.c
 propeddle.h
 p6502features.h
 >compiler=C
->memtype=lmm
->optimize=-Os
+>memtype=cog
+>optimize=-O0
 >-fno-exceptions
 >-Dprintf=__simple_printf
+>defs::-save-temps
 >BOARD::PROPEDDLE100

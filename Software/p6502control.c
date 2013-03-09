@@ -1,20 +1,11 @@
-#ifdef INCLUDING
 /*
- * p6502control.cogc
- *
- * Control cog for the Propeddle system
+ * propeddle_run.c 
  *
  * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
+ 
 
-
-// Issue 60 of the Propeller GCC compiler describes a problem where enum
-// values cannot be put into some inline assembler directives as 
-// immediate-value arguments.
-// The workaround is to use #defines instead of enums, so the preprocessor
-// knows the literal values (which is not the case for enums), and they
-// can be placed in the code by using the stringize operator.
 #define WORKAROUND_ISSUE60
 
  
@@ -75,14 +66,9 @@ typedef enum
 /////////////////////////////////////////////////////////////////////////////
 
 
-//---------------------------------------------------------------------------
 // Static constants
-//
 // It's easier to initialize them this way than as parameters to __asm__
-// because there is a hard limit of 30 parameters in GCC. The inline 
-// assembler is able to access these as external variables, but their names
-// are prefixed with '_' from the assembler's point of view.
-
+// because there is a hard limit of 30 parameters in GCC.
 // -- single pins --
 const _COGMEM unsigned mask_NMI         = pmask(pin_NMI);
 const _COGMEM unsigned mask_RES         = pmask(pin_RES);
@@ -107,7 +93,6 @@ const _COGMEM unsigned mask_ADDR        = P6502_MASK_ADDR;
 const _COGMEM unsigned mask_DATA        = P6502_MASK_DATA;
 const _COGMEM unsigned mask_SIGNALS     = P6502_MASK_SIGNALS;
 const _COGMEM unsigned mask_RESET       = P6502_MASK_RESET;
-const _COGMEM unsigned mask_CLK0_SLC    = P6502_MASK_CLK0_SLC;
 
 // -- all pins --
 const _COGMEM unsigned mask_DIR_INIT    = P6502_MASK_DIR_INIT;
@@ -122,19 +107,6 @@ const _COGMEM unsigned mux_R            = 0b00000000100000000000000000000000;
 //---------------------------------------------------------------------------
 // Signals
 volatile unsigned Signals = P6502_MASK_SIGNALS;
-
-
-//---------------------------------------------------------------------------
-// Global struct used during operation
-volatile struct
-{
-    P6502_MODE      mode;               // Mode
-    unsigned        clockcount;         // Number of clock cycles to execute
-    unsigned        cycletime;          // Clock cycle time
-    unsigned        startaddr;          // 6502 address bus value for command
-    unsigned        hubaddr;            // Hub address for command
-    unsigned        hubcount;           // Number of hub bytes for command
-} p6502control_Globals;
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -304,17 +276,19 @@ volatile struct
 // iterations because there is a hub instruction in the loop which may take
 // longer during the first iteration than during the following iterations.
 // However, after executing the loop once, all subsequent executions take
-// the same amount of time: 80 Propeller clock cycles.
+// the same amount of time: 80 Propeller clock cycles. A timing analysis
+// document is available to prove this.
 _NATIVE
 unsigned                                // Returns number of cycles remaining
-static p6502__control(void)
+static p6502__control(
+    P6502_MODE mode,                    // Mode
+    unsigned clockcount,                // Number of clock cycles to execute
+    unsigned cycletime,                 // Clock cycle time
+    unsigned startaddr,                 // 6502 address bus value for command
+    unsigned hubaddr,                   // Hub address for command
+    unsigned hubcount)                  // Number of hub bytes for command
 {
-    __asm__ (
-                    // This directive ensures that the assembler uses cog 
-                    // addresses instead of byte addresses.
-"\n                 .cog_ram"
-"\ntest: mov r8, #test"
-"\n mov r8, test"
+    __asm__ __volatile__(
                     // Make sure we don't break the speed limit
 "\n                 min     %[cycletime], %[iDELAY_MIN]"
 
@@ -831,7 +805,6 @@ static p6502__control(void)
                     // The Run mode Phi1 code sets the C flag depending on
                     // the R/W pin but the flag may have been trashed by the
                     // patched Phi1 code so we test it again here.
-"\n                 mov     INA,        INA"
 "\n                 test    INA,        _mask_RW wc"
 
                     // Because of the re-test above, and the jump to here 
@@ -857,7 +830,6 @@ static p6502__control(void)
                     // Note, this may leave the system in an unstable state
                     // because the download wasn't finished yet.
 "\nLoadPINTLoop"
-"\n                 mov     INA,        INA"
 "\n                 test    INA,        " label_PINT " wc"
 "\n     if_c        jmp     #EndMainLoop"
 
@@ -913,8 +885,8 @@ static p6502__control(void)
                     // Wait for the end of the requested cycle time
                     // Initialization may change the instruction at the end
                     // of the loop so that this instruction is skipped.
-//t0=68..83
-//tn=68
+//t0=67..82
+//tn=67
 "\n                 waitcnt clock,      %[cycletime]"
 
                     // Turn off the Write Enable to the RAM
@@ -924,8 +896,8 @@ static p6502__control(void)
                     // over how long the 6502 will hold the address and data
                     // that is written to the RAM, we have to disable the
                     // RAMWE line before switching the clock, not after.
-//t0=74..89
-//tn=74
+//t0=72..87
+//tn=72
 "\n                 or      OUTA,       _mask_RAMWE"
 
                     //-------------------------------------------------------
@@ -941,8 +913,8 @@ static p6502__control(void)
                     // one of the other cogs makes the clock high too
                     // (pseudo-interrupt).
                     // We will check for that next.
-//t0=78..93
-//tn=78
+//t0=76..91
+//tn=76
 "\nStartMainLoop"
 "\n                 andn    OUTA,       _mask_CLK0"
 
@@ -956,10 +928,8 @@ static p6502__control(void)
                     // can also safely keep running: they are just as unaware
                     // of the fact that we couldn't change the CLK0 output to
                     // low as the 6502 is.
-@@@ 2 clocks too many; must reinstate code that eliminate waitcnt when running at top speed
 //t0=0
 //tn=0
-"\n                 mov     INA,        INA" // Can't TEST ina without copying to shadow register first
 "\n                 test    INA,        " label_PINT " wc"
 "\n     if_c        jmp     #EndMainLoop"
 
@@ -981,8 +951,8 @@ static p6502__control(void)
                     //   to turn SLC on again.
                     // - The address buffers are enabled so other cogs can
                     //   read the address from P0..P15
-//t0=12
-//tn=12
+//t0=8
+//tn=8
 "\nPhi1Start"                                           // Load mode jumps here
 "\n                 mov     OUTA,       _mask_OUT_PHI1"
 
@@ -991,37 +961,40 @@ static p6502__control(void)
                     // Also we want to give the other cogs some time to pick
                     // up the address, so we check the read/write output of
                     // the 6502 here, and then wait for one instruction time.
-//t0=16
-//tn=16
-"\n                 mov     addr,       INA"
-"\n                 test    addr,       _mask_RW wc" // c=1 read, c=0 write
+//t0=12
+//tn=12
+"\n                 test    INA,        _mask_RW wc" // c=1 read, c=0 write
+"\n                 mov     addr,       INA"        // Value only used in Load mode
 
                     // Turn the address buffers off again
-//t0=24
-//tn=24
+//t0=20
+//tn=20
 "\n                 or      OUTA,       _mask_AEN"
 
                     // Put the signals on the flip-flops on P8..P15. They
                     // need a little time to settle and we also want to give
                     // other cogs the opportunity to override them so there's
                     // some extra delay in there.
-//t0=28
-//tn=28                    
+//t0=24
+//tn=24                    
 "\n                 or      OUTA,       signals"
 "\n                 or      DIRA,       _mask_SIGNALS"
-
 
                     // In Load mode, a CALL is placed here to check the
                     // current address of the 6502 and enable the RAM if
                     // necessary
+//t0=32
+//tn=32                    
 "\nPhi1AltIns"
+"\n                 nop"                // Other cogs write signal pins here
+
+                    // In non-Run modes, execution continues here
+"\nPhi1Continue"
+
                     // Clock the flip-flops to send the signals to the 6502.
 //t0=36
 //tn=36
 "\n                 or      OUTA,       _mask_SLC"
-
-                    // In non-Run modes, execution continues here
-"\nPhi1Continue"
 
 
                     //-------------------------------------------------------
@@ -1036,13 +1009,9 @@ static p6502__control(void)
                     // picked up later) so by clocking the flipflops before
                     // switching CLK0, we guarantee that the delay for all
                     // signals is minimal.
-                    
-                    // In non-run modes, the signals aren't that important
-                    // and the previous instruction is replaced, so set
-                    // both pins just in case.
 //t0=40
 //tn=40
-"\n                 or      OUTA,       _mask_CLK0_SLC"
+"\n                 or      OUTA,       _mask_CLK0"
 
                     // Remove the signals from P8..P15
                     // They are still set in OUTA but they will be cleared
@@ -1063,7 +1032,7 @@ static p6502__control(void)
 //t0=48
 //tn=48
 "\nPhi2AltIns"
-"\n                 rdlong  signals,    %[psignals]"
+"\n                 rdlong  signals,    %[psignals]"                    
 
                     // Enable the RAM chip, either for write or for read,
                     // depending on whether the 6502 is in read or write
@@ -1072,8 +1041,8 @@ static p6502__control(void)
                     // the RAM outputs (i.e. turn them off) and take
                     // their own actions, such as redirecting to/from the
                     // hub or making sure the RAM cannot be overwritten.
-//t0=56..71
-//tn=56
+//t0=55..62
+//tn=55
 "\n     if_nc       andn    OUTA,       _mask_RAMWE"
 "\n     if_c        andn    OUTA,       _mask_RAMOE"
 
@@ -1084,8 +1053,8 @@ static p6502__control(void)
                     // If we run without limitation, the initialization
                     // code changes the instruction so it doesn't store
                     // the result (NR), so this loops forever.
-//t0=64..79
-//tn=64
+//t0=59..66
+//tn=59
 "\nLoopIns"
 "\n                 djnz    %[clockcount], #MainLoop"
 
@@ -1107,16 +1076,17 @@ static p6502__control(void)
 "\nEndAltIns"
 :
     // OUTPUTS
-    [clockcount]            "+rC"       (p6502control_Globals.clockcount)
+    [clockcount]            "+rC"       (clockcount)
 :
     // INPUTS
     
     // Parameters
-    [mode]                  "rC"        (p6502control_Globals.mode),
-    [cycletime]             "rC"        (p6502control_Globals.cycletime),
-    [startaddr]             "rC"        (p6502control_Globals.startaddr),
-    [hubaddr]               "rC"        (p6502control_Globals.hubaddr),
-    [hubcount]              "rC"        (p6502control_Globals.hubcount),
+    //output+input [counter]               "rC"        (counter),
+    [mode]                  "rC"        (mode),
+    [cycletime]             "rC"        (cycletime),
+    [startaddr]             "rC"        (startaddr),
+    [hubaddr]               "rC"        (hubaddr),
+    [hubcount]              "rC"        (hubcount),
 
     // Globals
     [psignals]              "rC"        (&Signals),
@@ -1136,22 +1106,57 @@ static p6502__control(void)
     "r10"
     );
 
-    return p6502control_Globals.clockcount;
+    return clockcount;
 }
 
 
 //---------------------------------------------------------------------------
-// Main program
-//
-// This is called when the cog is started.
-// There can only be one control cog so there is no point in passing a
-// parameter; instead, we just use the data structure in hub RAM.
-_NAKED
-void main(void)
+// Initialize the system
+void
+_NATIVE p6502control_Init(void)
 {
-    p6502control_Globals.mode = P6502_MODE_INIT;
-    
-    (void)p6502__control();
+    (void)p6502__control(
+      P6502_MODE_INIT,                  // Init mode
+      0,                                // Clock count irrelevant
+      0,                                // Cycle time irrelevant
+      0,                                // Start address irrelevant
+      0,                                // Hub address irrelevant
+      0);                               // Hub length irrelevant
+}
+
+
+//---------------------------------------------------------------------------
+// Load data
+unsigned                                // Returns 0=success, other=interrupt
+_NATIVE P6502control_Load(
+    void *pSrc,                         // Source hub address
+    unsigned short pTarget,             // Address in 6502 space
+    size_t size)                        // Length in bytes
+{
+    return p6502__control(
+      P6502_MODE_LOAD,                  // Load mode
+      0,                                // Clock count irrelevant
+      0,                                // Cycle time irrelevant
+      pTarget,                          // 6502 address
+      (unsigned)pSrc,                   // Hub address
+      size);                            // Size in bytes
+}  
+  
+  
+//---------------------------------------------------------------------------
+// Run
+unsigned                                // Returns 0=done, other=interrupt
+_NATIVE p6502control_Run(
+    unsigned nClockCount,               // Number of clock cycles, 0=infinite
+    unsigned nCycleTime)                // Num Prop cycles per 6502 cycles
+{
+    return p6502__control(
+        P6502_MODE_RUN,                 // Run mode
+        nClockCount,                    // Clock count
+        nCycleTime,                     // Cycle time
+        0,                              // 6502 address irrelevant
+        0,                              // Hub address irrelevant
+        0);                             // Length irrelevant
 }
 
 
@@ -1184,4 +1189,3 @@ void main(void)
 /////////////////////////////////////////////////////////////////////////////
 // END
 /////////////////////////////////////////////////////////////////////////////
-#endif
