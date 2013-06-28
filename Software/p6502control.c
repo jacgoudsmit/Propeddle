@@ -1,11 +1,19 @@
 /*
- * propeddle_run.c 
+ * p6502control.c 
+ *
+ * Control cog for the Propeddle system
  *
  * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
- 
 
+
+// Issue 60 of the Propeller GCC compiler describes a problem where enum
+// values cannot be put into some inline assembler directives as 
+// immediate-value arguments.
+// The workaround is to use #defines instead of enums, so the preprocessor
+// knows the literal values (which is not the case for enums), and they
+// can be placed in the code by using the stringize operator.
 #define WORKAROUND_ISSUE60
 
  
@@ -43,7 +51,7 @@
 // Modes for internal function
 #ifdef WORKAROUND_ISSUE60
 #define P6502_MODE_NONE (0)
-#define P6502_MODE_RUN (1)
+#define P6502_MODE_RUN  (1)
 #define P6502_MODE_LOAD (2)
 #define P6502_MODE_INIT (3)
 #define W60(x) _(x)
@@ -66,9 +74,14 @@ typedef enum
 /////////////////////////////////////////////////////////////////////////////
 
 
+//---------------------------------------------------------------------------
 // Static constants
+//
 // It's easier to initialize them this way than as parameters to __asm__
-// because there is a hard limit of 30 parameters in GCC.
+// because there is a hard limit of 30 parameters in GCC. The inline 
+// assembler is able to access these as external variables, but their names
+// are prefixed with '_' from the assembler's point of view.
+
 // -- single pins --
 const _COGMEM unsigned mask_NMI         = pmask(pin_NMI);
 const _COGMEM unsigned mask_RES         = pmask(pin_RES);
@@ -288,7 +301,11 @@ static p6502__control(
     unsigned hubaddr,                   // Hub address for command
     unsigned hubcount)                  // Number of hub bytes for command
 {
-    __asm__ __volatile__(
+    __asm__ (
+                    // This directive ensures that the assembler uses cog 
+                    // addresses instead of byte addresses.
+"\n                 .pasm"
+
                     // Make sure we don't break the speed limit
 "\n                 min     %[cycletime], %[iDELAY_MIN]"
 
@@ -805,7 +822,7 @@ static p6502__control(
                     // The Run mode Phi1 code sets the C flag depending on
                     // the R/W pin but the flag may have been trashed by the
                     // patched Phi1 code so we test it again here.
-"\n                 test    INA,        _mask_RW wc"
+"\n                 test    _mask_RW,   INA wc"
 
                     // Because of the re-test above, and the jump to here 
                     // from the loop, the instructions that enable the RAM
@@ -830,7 +847,7 @@ static p6502__control(
                     // Note, this may leave the system in an unstable state
                     // because the download wasn't finished yet.
 "\nLoadPINTLoop"
-"\n                 test    INA,        " label_PINT " wc"
+"\n                 test    " label_PINT ", INA wc"
 "\n     if_c        jmp     #EndMainLoop"
 
                     // Reset DIRA
@@ -930,7 +947,7 @@ static p6502__control(
                     // low as the 6502 is.
 //t0=0
 //tn=0
-"\n                 test    INA,        " label_PINT " wc"
+"\n                 test    " label_PINT ", INA wc"
 "\n     if_c        jmp     #EndMainLoop"
 
                     // Initialize all output signals:
@@ -963,8 +980,8 @@ static p6502__control(
                     // the 6502 here, and then wait for one instruction time.
 //t0=12
 //tn=12
-"\n                 test    INA,        _mask_RW wc" // c=1 read, c=0 write
 "\n                 mov     addr,       INA"        // Value only used in Load mode
+"\n                 test    addr,       _mask_RW wc" // c=1 read, c=0 write
 
                     // Turn the address buffers off again
 //t0=20
@@ -979,6 +996,7 @@ static p6502__control(
 //tn=24                    
 "\n                 or      OUTA,       signals"
 "\n                 or      DIRA,       _mask_SIGNALS"
+
 
                     // In Load mode, a CALL is placed here to check the
                     // current address of the 6502 and enable the RAM if
@@ -1032,7 +1050,7 @@ static p6502__control(
 //t0=48
 //tn=48
 "\nPhi2AltIns"
-"\n                 rdlong  signals,    %[psignals]"                    
+"\n                 rdlong  signals,    %[psignals]"
 
                     // Enable the RAM chip, either for write or for read,
                     // depending on whether the 6502 is in read or write

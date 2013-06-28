@@ -1,6 +1,5 @@
-#ifdef INCLUDING
 /*
- * p6502control.cogc
+ * p6502control.c 
  *
  * Control cog for the Propeddle system
  *
@@ -52,7 +51,7 @@
 // Modes for internal function
 #ifdef WORKAROUND_ISSUE60
 #define P6502_MODE_NONE (0)
-#define P6502_MODE_RUN (1)
+#define P6502_MODE_RUN  (1)
 #define P6502_MODE_LOAD (2)
 #define P6502_MODE_INIT (3)
 #define W60(x) _(x)
@@ -93,21 +92,11 @@ const _COGMEM unsigned mask_AEN         = pmask(pin_AEN);
 const _COGMEM unsigned mask_SLC         = pmask(pin_SLC);
 const _COGMEM unsigned mask_CLK0        = pmask(pin_CLK0);
 
-#if pin_CLK0 == pin_PINT
-#define mask_PINT mask_CLK0
-#define label_PINT "_mask_CLK0"
-#else
-#warning PINT is not equal to CLK0, this was not tested
-const _COGMEM unsigned mask_PINT        = pmask(pin_PINT);
-#define label_PINT "_mask_PINT"
-#endif
-
 // -- multiple pins --
 const _COGMEM unsigned mask_ADDR        = P6502_MASK_ADDR;
 const _COGMEM unsigned mask_DATA        = P6502_MASK_DATA;
 const _COGMEM unsigned mask_SIGNALS     = P6502_MASK_SIGNALS;
 const _COGMEM unsigned mask_RESET       = P6502_MASK_RESET;
-const _COGMEM unsigned mask_CLK0_SLC    = P6502_MASK_CLK0_SLC;
 
 // -- all pins --
 const _COGMEM unsigned mask_DIR_INIT    = P6502_MASK_DIR_INIT;
@@ -312,9 +301,8 @@ static p6502__control(void)
     __asm__ (
                     // This directive ensures that the assembler uses cog 
                     // addresses instead of byte addresses.
-"\n                 .cog_ram"
-"\ntest: mov r8, #test"
-"\n mov r8, test"
+"\n                 .pasm"
+
                     // Make sure we don't break the speed limit
 "\n                 min     %[cycletime], %[iDELAY_MIN]"
 
@@ -831,8 +819,7 @@ static p6502__control(void)
                     // The Run mode Phi1 code sets the C flag depending on
                     // the R/W pin but the flag may have been trashed by the
                     // patched Phi1 code so we test it again here.
-"\n                 mov     INA,        INA"
-"\n                 test    INA,        _mask_RW wc"
+"\n                 test    _mask_RW,   INA wc"
 
                     // Because of the re-test above, and the jump to here 
                     // from the loop, the instructions that enable the RAM
@@ -857,8 +844,7 @@ static p6502__control(void)
                     // Note, this may leave the system in an unstable state
                     // because the download wasn't finished yet.
 "\nLoadPINTLoop"
-"\n                 mov     INA,        INA"
-"\n                 test    INA,        " label_PINT " wc"
+"\n                 test    _mask_CLK0, INA wc"
 "\n     if_c        jmp     #EndMainLoop"
 
                     // Reset DIRA
@@ -904,28 +890,39 @@ static p6502__control(void)
 //---------------------------------------------------------------------------
 
 
-                    // This is NOT the entry point for the main loop, but
-                    // rather the point at the end of Phi2 just before we
-                    // wait for the clock. It makes sense to put the DJNZ
-                    // just before the WAITCNT instruction and enter the
-                    // loop not at this point, but further down.
+                    // Note: This is NOT the entry point for the main loop.
+                    // The end of the code jumps here if it needs to wait
+                    // for the requested cycle time.
 "\nMainLoop"
                     // Wait for the end of the requested cycle time
-                    // Initialization may change the instruction at the end
-                    // of the loop so that this instruction is skipped.
-//t0=68..83
-//tn=68
+                    // Initialization may change the jump-instruction at the
+                    // end of the loop so that this instruction is skipped.
+//t0=67..82
+//tn=67
 "\n                 waitcnt clock,      %[cycletime]"
 
-                    // Turn off the Write Enable to the RAM
+                    // Turn off the Write Enable to the RAM.
                     // In other 6502 systems, the RAM is usually disabled
-                    // BECAUSE the clock goes low, but because we have
-                    // control over the clock but we don't have control
-                    // over how long the 6502 will hold the address and data
-                    // that is written to the RAM, we have to disable the
-                    // RAMWE line before switching the clock, not after.
-//t0=74..89
-//tn=74
+                    // BECAUSE (and therefore AFTER) the clock goes low (and
+                    // within the Write Data Hold Time of the 6502), so that
+                    // the data that gets written to the RAM is stable.
+                    // On the Propeddle hardware, we have full control over
+                    // the clock, but the RAMWE line is independent from it.
+                    // In the ideal case, we would turn RAMWE off at the
+                    // same time as making CLK0 low, however RAMWE has to go
+                    // HIGH to go off, so the only way to simultaneously
+                    // change both pins is to use an XOR, but we can't do 
+                    // that because RAMWE is not always LOW to begin with.
+                    // So we turn RAMWE off before we set the clock low,
+                    // which may look a little weird on a logic analyzer but
+                    // the RAM should have had plenty of time to write the
+                    // data.
+                    // As a bonus, any other cog that's overriding the RAMWE
+                    // by setting it high, can simply wait until CLK0 goes
+                    // low before setting it low again. No extra delays 
+                    // required.
+//t0=72..87
+//tn=72
 "\n                 or      OUTA,       _mask_RAMWE"
 
                     //-------------------------------------------------------
@@ -941,8 +938,8 @@ static p6502__control(void)
                     // one of the other cogs makes the clock high too
                     // (pseudo-interrupt).
                     // We will check for that next.
-//t0=78..93
-//tn=78
+//t0=76..91
+//tn=76
 "\nStartMainLoop"
 "\n                 andn    OUTA,       _mask_CLK0"
 
@@ -954,35 +951,33 @@ static p6502__control(void)
                     // loop without need to worry about the 6502.
                     // The other cogs that depend on the timing of this cog
                     // can also safely keep running: they are just as unaware
-                    // of the fact that we couldn't change the CLK0 output to
-                    // low as the 6502 is.
-@@@ 2 clocks too many; must reinstate code that eliminate waitcnt when running at top speed
+                    // of the fact that we couldn't change the CLK0 output
+                    // as the 6502 is.
 //t0=0
 //tn=0
-"\n                 mov     INA,        INA" // Can't TEST ina without copying to shadow register first
-"\n                 test    INA,        " label_PINT " wc"
+"\n                 test    _mask_CLK0, INA wc"
 "\n     if_c        jmp     #EndMainLoop"
 
                     // Initialize all output signals:
                     // - The RAM is disabled; this has to happen a short time
-                    //   after setting the clock low, so that the 6502 has
-                    //   time to read the data bus. Normally it would be
-                    //   sufficient to turn the RAM off at the same time as
-                    //   switching the clock, however this is impossible
-                    //   because we can't set one pin low and another pin 
-                    //   high at the same time unless we use XOR and that's
-                    //   not possible because we can't be sure of the state
-                    //   of the RAM pins at this point.
+                    //   AFTER setting the clock low, so that (in the case of
+                    //   a read-cycle) the 6502 has time to read the data bus.
+                    //   Normally it would be sufficient to turn the RAM off
+                    //   at the same time as switching the clock, however
+                    //   this is impossible because we can't set one pin low 
+                    //   and another pin high at the same time unless we use
+                    //   XOR and that's not possible because we can't be sure 
+                    //   of the state of the RAM pins at this point.
                     // - The signals in the OUTA register are initialized to
-                    //   0 so it's possible to OR the signals from the hub in
-                    //   there.
+                    //   0 so it's possible to use an OR instruction to mask 
+                    //   the signals from the hub in there a little bit later.
                     // - The clock for the signal flipflops (SLC) is reset so
-                    //   that all it takes to get them to the 6502 again is
+                    //   that all it takes to get the signals to the 6502 is
                     //   to turn SLC on again.
                     // - The address buffers are enabled so other cogs can
                     //   read the address from P0..P15
-//t0=12
-//tn=12
+//t0=8
+//tn=8
 "\nPhi1Start"                                           // Load mode jumps here
 "\n                 mov     OUTA,       _mask_OUT_PHI1"
 
@@ -991,38 +986,40 @@ static p6502__control(void)
                     // Also we want to give the other cogs some time to pick
                     // up the address, so we check the read/write output of
                     // the 6502 here, and then wait for one instruction time.
-//t0=16
-//tn=16
-"\n                 mov     addr,       INA"
-"\n                 test    addr,       _mask_RW wc" // c=1 read, c=0 write
+//t0=12
+//tn=12
+"\n                 test    _mask_RW,   INA wc"         // c=1 read, c=0 write
+"\n                 mov     addr,       INA"            // Value only used in Load mode
 
                     // Turn the address buffers off again
-//t0=24
-//tn=24
+//t0=20
+//tn=20
 "\n                 or      OUTA,       _mask_AEN"
 
-                    // Put the signals on the flip-flops on P8..P15. They
-                    // need a little time to settle and we also want to give
-                    // other cogs the opportunity to override them so there's
-                    // some extra delay in there.
-//t0=28
-//tn=28                    
+                    // Put the signals on the flip-flops on P8..P15. The
+                    // other cogs can override the signals by waiting for
+                    // AEN to go HIGH and then putting their signal output
+                    // on P8-P15.
+//t0=24
+//tn=24                    
 "\n                 or      OUTA,       signals"
 "\n                 or      DIRA,       _mask_SIGNALS"
-
 
                     // In Load mode, a CALL is placed here to check the
                     // current address of the 6502 and enable the RAM if
                     // necessary
-"\nPhi1AltIns"
-                    // Clock the flip-flops to send the signals to the 6502.
-//t0=36
-//tn=36
-"\n                 or      OUTA,       _mask_SLC"
+                    // Other cogs can wait for AEN HIGH to override signals
+                    // at this time.
+//t0=32
+//tn=32                    
+@@@"\nPhi1AltIns"
 
                     // In non-Run modes, execution continues here
-"\nPhi1Continue"
+@@@"\nPhi1Continue"
 
+                    // Clock the flip-flops to send the signals to the 6502.
+"\n                 or      OUTA,       _mask_SLC"
+"\n                 waitcnt clock,      %[cycletime]"
 
                     //-------------------------------------------------------
                     // Phi2
@@ -1036,13 +1033,9 @@ static p6502__control(void)
                     // picked up later) so by clocking the flipflops before
                     // switching CLK0, we guarantee that the delay for all
                     // signals is minimal.
-                    
-                    // In non-run modes, the signals aren't that important
-                    // and the previous instruction is replaced, so set
-                    // both pins just in case.
 //t0=40
 //tn=40
-"\n                 or      OUTA,       _mask_CLK0_SLC"
+"\n                 or      OUTA,       _mask_CLK0"
 
                     // Remove the signals from P8..P15
                     // They are still set in OUTA but they will be cleared
@@ -1072,8 +1065,8 @@ static p6502__control(void)
                     // the RAM outputs (i.e. turn them off) and take
                     // their own actions, such as redirecting to/from the
                     // hub or making sure the RAM cannot be overwritten.
-//t0=56..71
-//tn=56
+//t0=55..62
+//tn=55
 "\n     if_nc       andn    OUTA,       _mask_RAMWE"
 "\n     if_c        andn    OUTA,       _mask_RAMOE"
 
@@ -1084,8 +1077,8 @@ static p6502__control(void)
                     // If we run without limitation, the initialization
                     // code changes the instruction so it doesn't store
                     // the result (NR), so this loops forever.
-//t0=64..79
-//tn=64
+//t0=59..66
+//tn=59
 "\nLoopIns"
 "\n                 djnz    %[clockcount], #MainLoop"
 
@@ -1184,4 +1177,3 @@ void main(void)
 /////////////////////////////////////////////////////////////////////////////
 // END
 /////////////////////////////////////////////////////////////////////////////
-#endif

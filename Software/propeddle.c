@@ -10,7 +10,8 @@
 // INCLUDES
 /////////////////////////////////////////////////////////////////////////////
 
- 
+
+#define INCLUDING // Workaround for SimpleIDE compiling .h files as modules
 #include "p6502control.h" 
 #include "propeddle.h"
 

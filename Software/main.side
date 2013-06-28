@@ -1,13 +1,12 @@
 main.c
 p6502control.h
-p6502control.cogc
-propeddle.c
 propeddle.h
 p6502features.h
+p6502control.cogc
 >compiler=C
->memtype=cog
->optimize=-O0
+>memtype=lmm
+>optimize=-Os
+>-Wall
 >-fno-exceptions
 >-Dprintf=__simple_printf
->defs::-save-temps
 >BOARD::PROPEDDLE100

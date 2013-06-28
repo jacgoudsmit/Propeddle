@@ -1,38 +1,27 @@
 /*
- * p6502features.h
+ * p6502_feature.h
  *
  * Macros that control which features are compiled
- * You may have to modify this file depending on your project
+ * You may have to modify this file depending on your project.
  *
  * (C) Copyright 2011-2013 Jac Goudsmit
  * Distributed under the MIT license. See bottom of the file for details.
  */
 
-#if !defined(_P6502FEATURES_H) && defined(INCLUDING)
-#define _P6502FEATURES_H
+ 
+#ifndef P6502_FEATURE_H
+#define P6502_FEATURE_H
+
 
 /////////////////////////////////////////////////////////////////////////////
 // MACROS
 /////////////////////////////////////////////////////////////////////////////
 
 
-// Uncomment this if you need to download data to the Propeddle RAM.
-#define P6502_CONTROLCOG_DOWNLOAD
-
-// Uncomment this if you need to shut down the control cog.
-#define P6502_CONTROLCOG_SHUTDOWN
-
-// Uncomment this if you need the I2C bus (pins 28 and 29) for any purpose
-// other than booting from the EEPROM. If so, you have to stop the 6502 and
-// call the disconnect function.
-#define P6502_CONTROLCOG_I2C
-
-// Uncomment this if you will be calling the functions in propeddle.h from
-// more than one cog. If not, you can save a lock.
-#define P6502_USE_LOCK
-
-// Uncomment this to implement state checks on entry of each API function
-#define P6502_CHECK_STATE
+// Set this to nonzero if you need an LED for debugging. Note, you can't use
+// Note: the LED is on one of the video output pins, see the hardware module
+// If you want to use video, you'll probably want to leave this set to 0.
+#define P6502_FEATURE_LED 1
 
 
 /////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,7 @@
+demo.c
+>compiler=C
+>memtype=lmm main ram
+>optimize=-Os
+>-fno-exceptions
+>defs::-std=c99
+>BOARD::GENERIC
