@@ -30,7 +30,7 @@ CON
   _clkmode = XTAL1 + PLL16X
   _xinfreq = 5_000_000
 
-  con_tracelen = 30
+  con_tracelen = 40
   
 OBJ
   text:         "SerInTVOut"
@@ -38,6 +38,7 @@ OBJ
   hw:           "PropeddleHardware"
   ram:          "PropeddleRAM"
   hub:          "PropeddleHub"
+  trace:        "PropeddleTrace"
   
 DAT
   tracedump long 0[con_tracelen]
@@ -47,18 +48,89 @@ DAT
   ' of how big you make it.
   ' 
   '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
-  romimage    byte  $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-              byte  $EE, $F9, $FF, $4C, $F0, $FF, $00, $00, $00, $00, $F0, $FF, $F0, $FF, $F0, $FF
+  romimage    'byte  $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
+              byte  $EE, $F9, $80, $4C, $F0, $FF, $00, $00, $00, $00, $F0, $FF, $F0, $FF, $F0, $FF
   romend      byte
 
   romstart    long $1_0000 - (@romend - @romimage)
       
   signals     long hw#con_MASK_SIGNALS
 
+PUB testmain | i
+
+  text.Start
+  
+  waitcnt(clkfreq + cnt)
+
+  text.str(string("Hello", 13))
+  
+  ctrl.Start
+
+  ' Hub access cog must be started after control cog
+  text.str(string("Starting hub cog: "))
+  text.hex(@romimage, 4)
+  text.tx(32)
+'  text.hex(byte[@romimage], 2)
+'  text.tx(32)
+  text.hex(romstart, 4)
+  text.tx(32)
+  text.hex(@romend - @romimage, 4)
+  text.tx(13)
+  hub.Start(@romimage, romstart, @romend - @romimage, TRUE)
+
+  ' Give us a wink to show you're there
+  'ctrl.LedOn
+
+  text.str(string("Reset On",13))
+  ctrl.SetSignal(hw#pin_RES, FALSE)
+  
+  repeat 2
+    trace.Start(@tracedump, 1)
+    ctrl.Run(40_000_000, 1)
+    ctrl.RunWait(clkfreq + cnt)
+
+    dumptrace(tracedump[0])
+
+  ctrl.SetSignal(hw#pin_RES, TRUE)
+  text.str(string("Reset Off",13))
+  
+  trace.Start(@tracedump, con_tracelen)
+  ctrl.Run(80, 40)
+  repeat
+    i := ctrl.RunWait(clkfreq + cnt)
+    'text.dec(i)
+    'text.tx(13)
+    if i <> ctrl#con_RESULT_RUN_RUNNING
+      quit
+
+  repeat i from 0 to con_tracelen - 1
+    if not dumptrace(tracedump[i])
+      quit
+
+  repeat
+    waitcnt(clkfreq + cnt)
+    ctrl.LedToggle
+
+PUB dumptrace(t)
+
+  result := t <> 0
+  if result
+    if (t & $80000000) <> 0
+      text.tx("R")
+    else
+      text.tx("W")
+    text.tx(32)
+    text.hex((t & $FFFF00) >> 8, 4)
+    text.tx(32)
+    text.hex((t & $FF), 2) 
+    text.tx(13)
+  else
+    text.str(string("- ---- --", 13))  
+
 PUB mainProgram | c, i
 
   waitcnt(clkfreq + cnt)
-  
+
   Zap(false)  
 
   Demo

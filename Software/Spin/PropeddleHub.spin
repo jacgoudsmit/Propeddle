@@ -67,7 +67,7 @@ PUB Stop
   if g_CogId
     cogstop(g_CogId~ - 1)
 
-  
+
 DAT
 
 '============================================================================
@@ -94,7 +94,12 @@ HubAccessCog
                         ' Change the length into the last address + 1 of the
                         ' mapped 6502 address space
                         add     g_Len, g_MapPtr
-                                                                                                 
+
+                        ' Let caller know we're running by storing cogid + 1
+                        cogid   data
+                        add     data, #1
+                        wrlong  data, PAR
+                                                                                                                         
                         jmp     #AccessLoopStart
 
 
@@ -154,6 +159,12 @@ RWRangeTestIns2
 ' the one and only point in time where there's nothing else to do.
 
 AccessLoop
+'tp=4 (85)
+                        ' Switch data bus bits back to input mode in case
+                        ' we were writing data to it during the previous
+                        ' cycle.                        
+                        andn    DIRA, #hw#con_mask_DATA ' Take data off the data bus
+                        andn    OUTA, mask_DATA_RAM ' Enable the RAM chip too
 'tp=12 (93)
                         ' Get the R/W pin into the Z flag.
                         ' Z=1 if the 6502 is writing
@@ -179,7 +190,6 @@ RangeTestIns1
 RangeTestIns2         
         if_nz_and_nc    cmp     g_Len, addr wc
 'tp=32 (113)
-                        ' We've been activated.
                         ' Add the hub offset to the 6502 address
         if_nc           add     addr, g_HubPtr ' Add hub address
 'tp=36 (117)
@@ -189,37 +199,33 @@ RangeTestIns2
 'tp=40 (121)                         
                         ' Depending on the R/W pin, put the data on the data
                         ' bus or get the data to be stored from the 6502.
-        if_nc_and_z     jmp     ToHub
+        if_nc_and_nz    jmp     #FromHub
+
 'tp=44 (125)       
-                        ' If R/W is HIGH (hub->6502), the Z flag is 0.
-                        ' Get data from data bus pins and write to hub
-        if_nc_and_nz    mov     data, INA       ' Get bits (only lowest 8 bits significant)
-'tp=48 (129)        
-        if_nc_and_nz    wrbyte  data, addr      ' Remember WRLONG operands are reversed
-'tp=56..71 (137..151 see above)        
-        if_nc_and_nz    jmp     #AccessLoopStart ' tp=60..75 (141..155) on arrival after the jump
-                
-'tp=44 (125)
-ToHub        
                         ' If R/W is LOW  (6502->hub), the Z flag is 1.
+                        ' Get data from data bus pins and write to hub
+        if_nc_and_z     mov     data, INA       ' Get bits (only lowest 8 bits significant)
+'tp=48 (129)        
+        if_nc_and_z     wrbyte  data, addr      ' Remember WRLONG operands are reversed
+'tp=56..71 (137..151 see above)        
+        if_nc_and_z     jmp     #AccessLoopStart ' tp=60..75 (141..155) on arrival after the jump
+
+'tp=44 (125)
+FromHub        
+                        ' If R/W is HIGH (hub->6502), the Z flag is 0.
                         ' Get data from hub and put it on the data bus
-        if_nc_and_z     rdbyte  data, addr      ' Read byte from hub (up to 23 prop clocks)
+        if_nc_and_nz    rdbyte  data, addr      ' Read byte from hub (up to 23 prop clocks)
 'tp=52..67 (133..147 see above)        
-        if_nc_and_z     or      OUTA, data      ' Write to output
+        if_nc_and_nz    or      OUTA, data      ' Write to output
 'tp=56..71 (137..151)        
-        if_nc_and_z     or      DIRA, #hw#con_mask_DATA ' Activate output (until after end of cycle)
+        if_nc_and_nz    or      DIRA, #hw#con_mask_DATA ' Activate output (until after end of cycle)
 'tp=60..75 (141..155)
                         ' The loop starts here.
                         ' Start by waiting for CLK0 to go low
 AccessLoopStart
                         waitpne mask_CLK0, mask_CLK0 ' Wait until CLK0 goes low
 'tp=0 (81) (147..161)
-                        ' Switch data bus bits back to input mode in case
-                        ' we were writing data to it during the previous
-                        ' cycle.                        
-                        andn    DIRA, #hw#con_mask_DATA ' Take data off the data bus
-                        andn    OUTA, mask_DATA_RAM ' Enable the RAM chip too
-                        jmp     AccessLoop wc   ' Set the C flag
+                        jmp     #AccessLoop wc   ' Set the C flag
 
                         fit
                         

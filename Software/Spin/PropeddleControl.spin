@@ -37,7 +37,6 @@ CON
 
   '==========================================================================
   ' Timing constants
-  con_delay_MAINLOOP_INIT     = 91
   con_delay_MAINLOOP_MINDELAY = 80
 
 
@@ -102,6 +101,7 @@ PUB Stop
     lockclr(g_busylock)
     lockret(g_busylock)
 
+    g_cmd := -1
     g_busylock := -1
     g_controlcogid := -1
 
@@ -248,8 +248,11 @@ PUB Download(parm_cycletime, parm_hubaddr, parm_addr, parm_numbytes)
     
 PUB Run(parm_cycletime, parm_numcycles)
 '' Runs the 65C02 for the specified number of cycles at the given number
-'' of system cycles per 65C02 cyle. If the speed exceeds the maximum, it's
-'' reduced.
+'' of system cycles per 65C02 cyle.
+''
+'' If the routine is called with a cycle time that's below the minimum,
+'' the main loop will run at the maximum speed.
+''
 '' After this, the same cog has to call the RunWait, RunEnd or Stop routine;
 '' other cogs are blocked from executing commands.
 '' The calling cog will own the lock.
@@ -420,7 +423,7 @@ parm_pHubAddr           long    @g_hubaddr              ' Pointer to hub address
 parm_pHubLen            long    @g_hublen               ' Pointer to hub length
 parm_pCounter           long    @g_counter              ' Pointer to counter
 parm_pCycleTime         long    @g_cycletime            ' Pointer to cycle time        
-pointertable_len        long    $ - pointertable
+pointertable_len        long    (@pointertable_len - @pointertable) >> 2
 
 '============================================================================
 ' HUB MEMORY AREA BELOW THIS POINT CAN BE REUSED FOR OTHER PURPOSES
@@ -531,8 +534,8 @@ SendSignals_Ret
                         
 CmdShutDown
                         mov     OUTA, out_INIT
-                        nop
-                        or      OUTA, mask_SLC
+                        'nop
+                        'or      OUTA, mask_SLC
 
                         ' Change state back to UNINITIALIZED so we can be
                         ' restarted
@@ -780,30 +783,15 @@ CmdDownload
 
 CmdRun
                         ' Read the time that each clock cycle should take
-                        ' Store this in the clock counter which is used for
-                        ' the waitcnt instructions.
                         ' Make sure the value is at least equal to the
-                        ' minimum execution time for the first loop.
-                        ' The actual value of the system clock is added as
-                        ' last instuction before jumping into the loop.
+                        ' minimum execution time.
                         rdlong  g_cycletime, parm_pCycleTime
-                        min     g_cycletime, #con_delay_MAINLOOP_MINDELAY wc
+                        min     g_cycletime, #con_delay_MAINLOOP_MINDELAY
 
-                        ' If the cycle time is less than the minimum, skip
-                        ' the WAITCNT instructions
-              if_c      movs    LoopIns, #NoWaitMainLoop
-              if_nc     movs    LoopIns, #MainLoop
-                        muxnc   DropOutIns, mux_NEVER_TO_ALWAYS
-
-                        ' Initialize the clock to cycle time, but minimize
-                        ' this by the minimum time for the FIRST cycle
-                        ' instead of the normal cycle time. The first cycle
-                        ' may be longer because the cog has to synchronize
-                        ' to the hub.
+                        ' Initialize the clock to the cycle time.
                         ' Note, CNT is added later, just before jumping into
                         ' the loop.
                         mov     clock, g_cycletime
-                        min     clock, #con_delay_MAINLOOP_INIT
 
                         ' Read the number of clock cycles to execute.
                         ' Depending on whether the count is 0, enable or
@@ -817,18 +805,20 @@ CmdRun
                         muxnz   LoopIns, mux_WR
 
                         ' Initialize return value
-                        ' 0 is used by the Spin code to indicate that the
-                        ' main loop is still running.
+                        ' This is used by the Spin code to indicate that the
+                        ' main loop is (still) running.
                         mov     g_retval, #con_result_RUN_RUNNING
                         wrlong  g_retval, parm_pRetVal
                         
-                        ' Set the state to Running
+                        ' Set the state to Running after setting the result
                         mov     g_state, #con_state_RUNNING
                         wrlong  g_state, parm_pState
-                        
+
+'tx=8                        
                         ' Add the system clock to the local clock. This
                         ' should be done just before jumping into the loop.
-                        add     clock, CNT                        
+                        add     clock, CNT
+'t0=-1 --> the ADD instruction gets CNT one cycle later than waitcnt compares it
                         jmp     #StartMainLoop
                         
 
@@ -839,7 +829,7 @@ CmdRun
 ' that executes at 1MHz when the Propeller runs at 80MHz. When the Propeller
 ' runs at 100MHz, the 65C02 can be run at up to 1.25MHz.
 ' The timing was based on the 65C02 datasheet from Western Design Center.
-' This may NOT run correctly on older (NMOS) 6502s because they may have
+' This may not run correctly on older (NMOS) 6502s because they may have
 ' different timing requirements: especially the setup times at the start
 ' of Phi1 are much longer for the original 6502 than for the 65C02.
 '
@@ -865,14 +855,20 @@ CmdRun
     
                         ' Note: This is NOT the entry point to the main loop
                         ' The entry point is further down.
-'t0=68..83
-'tx=20
-'tp=66                        
+'t0=71
+'tn=71
+'tx=84
+'tp=63                        
 MainLoop
                         ' Wait for the end of the requested cycle time
                         ' Initialization may change the DJNZ at the end of the
                         ' loop so that this instruction is skipped.
                         waitcnt clock, g_cycletime
+
+'t0=77 --> 3 cycles to spare
+'tn=0/80 --> for subsequent loops, the minimum cycle time is 80
+'tx=93
+'tp=63 or 72+ --> depending on whether waitcnt is skipped                    
 NoWaitMainLoop
                         ' Turn off the Write Enable to the RAM.
                         ' In other 6502 systems, the RAM is usually disabled
@@ -884,11 +880,13 @@ NoWaitMainLoop
                         ' by disabling the RAMWE line BEFORE making CLK0 low,
                         ' we ensure that any data written to the RAM is stored
                         ' safely.
-'t0=74..89 --> for first loop, cycle time should be at least this
-'tx=26
-'tp=66 or 72+ --> depending on whether waitcnt is skipped                    
                         or      OUTA, mask_RAMWE
 
+'t0=3
+'tn=4
+'tx=16/97
+'tp=67 or 76+                       
+StartMainLoop
                         ' This is the entry point to the main loop
                         '
                         ' The function enters and leaves with the CLK0 output
@@ -897,12 +895,12 @@ NoWaitMainLoop
                         ' values (the WDC 65C02S can be stopped at any time).
                         '
                         ' Start by setting the clock LOW, starting PHI1.
-'t0=4
-'tx=30
-'tp=70 or 76+                       
-StartMainLoop
                         andn    OUTA, mask_CLK0
 
+'t0=7
+'tn=8
+'tx=20/101
+'tp=0                        
                         ' Check if another cog is keeping the clock in the high
                         ' state, indicating that they want us to stop running.
                         ' If that is the case, we break out of the loop here.
@@ -913,12 +911,14 @@ StartMainLoop
                         ' can also safely keep running: they are just as unaware
                         ' of the fact that we couldn't change the CLK0 output
                         ' as the 6502 is.
-'t0=8
-'tx=34
-'tp=0                        
                         test    mask_CLK0, INA wc
         if_c            jmp     #EndMainLoop
 
+'t0=15
+'tn=16
+'tx=28/109
+'tp=8                       
+Phi1Start
                         ' Initialize all output signals:
                         ' - The RAM is disabled; this has to happen a short time
                         '   AFTER setting the clock low, so that (in the case of
@@ -937,12 +937,12 @@ StartMainLoop
                         '   to change SLC to high again.
                         ' - The address buffers are enabled so other cogs can
                         '   read the address from P0..P15
-'t0=16
-'tx=42
-'tp=8                       
-Phi1Start
                         mov     OUTA, out_PHI1
                         
+'t0=19
+'tn=20
+'tx=32/113
+'tp=12                        
                         ' The 74*244 bus drivers are also enabled with the
                         ' previous instruction, but we have to wait for the
                         ' 65C02 to generate the address (setup time), and for
@@ -953,30 +953,40 @@ Phi1Start
                         ' the '244s and the Propeller drive the pins, but
                         ' this only happens for a few nanoseconds so it
                         ' shouldn't cause any damage.
-                        ' Other cogs can inspect the address during this time.
-'t0=20
-'tx=46
-'tp=12                        
                         mov     DIRA, dir_PHI1
+
+'t0=23
+'tn=24
+'tx=36/117
+'tp=16
+                        ' Other cogs should inspect the address during this
+                        ' instruction (i.e. tp=16..22 or so)                        
                         test    mask_RW, INA wc
                         
-                        ' Deactivate the address buffers again
-'t0=28
-'tx=54
+'t0=27
+'tn=28
+'tx=40/121
 'tp=20                        
+                        ' Deactivate the address buffers again
                         or      OUTA, mask_AEN
 
+'t0=31
+'tn=32
+'tx=44/125
+'tp=24                        
                         ' Put the signals on the flip-flops on P8..P15. The
                         ' other cogs can override the signals by waiting for
                         ' AEN to go HIGH and then putting their signal output
                         ' on P8-P15.
-'t0=32
-'tx=58
-'tp=24                        
                         or      OUTA, g_signals
                         or      DIRA, mask_SIGNALS
                         or      OUTA, mask_SLC                        
 
+'t0=43
+'tn=44
+'tx=56/137
+'tp=36                        
+Phi2Start                        
                         ' Start Phi2 by setting the clock high.
                         ' This starts the PHI2 part of the clock cycle.
                         ' Note: it's possible to combine this instruction with
@@ -985,12 +995,12 @@ Phi1Start
                         ' picked up later) so by clocking the flipflops before
                         ' switching CLK0, we guarantee that the delay for all
                         ' signals is minimal.
-'t0=44
-'tx=70
-'tp=36                        
-Phi2Start                        
                         or      OUTA, mask_CLK0
 
+'t0=47
+'tn=48
+'tx=60/141 --> 4/3 cycles before the next hub access window
+'tp=40 --> Phi2 always starts at this point regardless of cycle time                        
                         ' There's not a whole lot that we need to do during
                         ' Phi2: this is when the 65C02 does its work.
                         ' We use this time to retrieve the signals from the
@@ -1001,48 +1011,47 @@ Phi2Start
                         ' bits that pertain to the signals, otherwise
                         ' unexpected results will occur when these are ORed
                         ' to the outputs during the next clock cycle.
+                        '
                         ' Setting the signals to 0 breaks out of the loop.
-
-'t0=48
-'tx=74 --> 6 cycles to spare
-'tp=40 --> Phi2 always starts at this point regardless of cycle time                        
                         rdlong  g_signals, parm_pSignals wz
 
+'t0=59 --> 47 + 4 wait cycles + 8 execution cycles
+'tn=59 --> 48 + 3 wait cycles + 8 execution cycles
+'tx=72/152 --> 80 cycles apart = minimum duration after first loop
+'tp=51 --> 8 cycles for execution of hub instruction plus 3 wait cycles                        
                         ' Enable the RAM depending on the R/!W output of the
                         ' 6502.
                         ' Any cogs that want to inhibit access to the RAM
                         ' chip (e.g. because they want to read or write
-                        ' data directly from/to the 6502 or they guard the
-                        ' ROM area of memory against writing or they map an
-                        ' I/O chip into the 6502's memory) can do so before
-                        ' this time, by making their own RAM outputs HIGH.
-'t0=56..71
-'tx=8
-'tp=54 --> 8 cycles for execution, 6 wait cycles                        
+                        ' data directly from hub to 6502 or vice versa, or
+                        ' they guard the ROM area of the memory chip against
+                        ' writing, or they map an I/O chip into the 6502's
+                        ' memory) can do so before this time, by making their
+                        ' own RAM outputs HIGH.
         if_nc           andn    OUTA, mask_RAMWE        ' 65C02 to RAM
         if_c            andn    OUTA, mask_RAMOE        ' RAM to 65C02
 
+'t0=67
+'tn=67
+'tx=80/160
+'tp=59                    
+LoopIns                         
                         ' The DJNZ instruction conditionally jumps back to
                         ' the beginning, to wait for the system timer.
-                        ' If the maximum number of instructions has been
-                        ' reached, or another cog sets the signals in the hub
-                        ' to 0.
                         ' The initialization code may override the bits in
                         ' the instruction so it doesn't store the counter
-                        ' (i.e. infinite loop) if it's initialized to 0.
+                        ' if it's initialized to 0 (changing the DJNZ into
+                        ' an infinite loop).
                         ' The initialization code may also override the
                         ' source part of the instruction to skip over the
                         ' WAITCNT instruction at the beginning of the loop,
                         ' to make the loop run as fast as possible.
-'t0=64..79
-'tx=16
-'tp=62                    
-LoopIns                         
-        if_nz           djnz    g_counter, #MainLoop wc ' always resets C
+        if_nz           djnz    g_counter, #MainLoop wc ' C=0 when dropping out
 
                         ' We dropped out of the loop
-                        ' Make sure the last cycle's duration is the same
-                        ' as all other cycles
+                        ' Make sure the last cycle's duration is at least as
+                        ' long as all other cycles
+                        add     clock, #8       ' 4 because djnz is 8 instead of 4 cycles; 4 for this instruction
 DropOutIns              waitcnt clock, g_cycletime
         
 EndMainLoop

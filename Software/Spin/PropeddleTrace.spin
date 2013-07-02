@@ -106,11 +106,6 @@ DAT
                         org     0
                         
 TraceCog
-                        ' Let caller know we're running by storing cogid + 1
-                        cogid   data
-                        add     data, #1
-                        wrlong  data, PAR
-                        
                         ' Set the C flag to skip the hub instructions
                         ' during the first iteration
                         sub     zero, #1 nr,wc
@@ -120,6 +115,10 @@ TraceCog
                         ' by pre-decreasing it here
                         sub     g_TraceBuffer, #4
 
+                        ' Let caller know we're running by storing cogid + 1
+                        cogid   data
+                        add     data, #1
+                        wrlong  data, PAR
 
 '============================================================================
 ' Main loop                        
@@ -128,7 +127,10 @@ Loop
 'tp=82 <-- Next clock cycle already started by this time
 
                         ' Wait until AEN is active
-                        waitpeq zero, mask_AEN ' <-- min wait time would get us to tp=8
+                        ' If this would wait the minimum amount of time that
+                        ' a WAITPNE could wait, it would wait until tp=8
+                        ' However AEN doesn't go low until just before tp=12
+                        waitpne mask_AEN, mask_AEN
 'tp=12
                         ' Wait for one instruction before picking up the
                         ' address bus, so the address bus buffers are
