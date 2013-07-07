@@ -780,6 +780,33 @@ CmdDownload
                         
 '============================================================================
 ' Run the main loop
+'
+' NOTE: The main loop was meticulously constructed to generate a loop that
+' can be executed at up to 1MHz when the Propeller is clocked at 80MHz.
+' When the Propeller runs at 100MHz, the 65C02 can be run at up to 1.25MHz.
+'
+' The timing was based on the 65C02 datasheet from Western Design Center, and
+' that's what it was tested on, too. The code may not run correctly on older
+' 6502s because they may have different timing requirements: especially the
+' setup times at the start of Phi1 are much longer for the original 6502 than
+' for later models. If you insist on using a different 6502, you may need to
+' modify this code (and it may not run at the full 1MHz) and the code for
+' other cogs that depend on the timing of the control cog may also need to be
+' modified.
+'
+' The timing values in comments are:
+' tn=The number of Propeller cycles from waitcnt instruction. By the time the cog reaches the waitcnt
+'    again, tn must be less than the minimum cycle time plus the minimum time
+'    for the waitcnt.
+' tx=The number of Propeller cycles relative to the Hub access time window.
+'    This cog gets access to the hub every 16 cycles, and when a hub
+'    instruction executes, it waits for access for up to 15 cycles. After
+'    every hub instruction, tx is always equal to 8 because that's how long
+'    a hub instruction takes to execute, once it has hub access.
+'    There are hub instructions that are executed before the cog goes into
+'    the main loop, so the loop always starts with tx at a fixed value.
+' tp=The number of clock cycles from the point where Phi1 starts. These
+'    numbers are used to synchronization other cogs with this cog.
 
 CmdRun
                         ' Read the time that each clock cycle should take
@@ -787,11 +814,6 @@ CmdRun
                         ' minimum execution time.
                         rdlong  g_cycletime, parm_pCycleTime
                         min     g_cycletime, #con_delay_MAINLOOP_MINDELAY
-
-                        ' Initialize the clock to the cycle time.
-                        ' Note, CNT is added later, just before jumping into
-                        ' the loop.
-                        mov     clock, g_cycletime
 
                         ' Read the number of clock cycles to execute.
                         ' Depending on whether the count is 0, enable or
@@ -814,62 +836,40 @@ CmdRun
                         mov     g_state, #con_state_RUNNING
                         wrlong  g_state, parm_pState
 
-'tx=8                        
-                        ' Add the system clock to the local clock. This
-                        ' should be done just before jumping into the loop.
+                        ' Load initial signals
+                        ' If they are zero, bail out right away.
+                        rdlong  g_signals, parm_pSignals wz
+        if_z            jmp     #EndMainLoop
+'tx=12
+                        ' Initialize the clock. This should be done just
+                        ' before jumping into the loop.
+                        ' The minimum delay for a WAITCNT instruction is 6
+                        ' cycles, but when the ADD instruction picks up the
+                        ' value of CNT, it does this one cycle later than
+                        ' the WAITCNT instructions so it appears as if the
+                        ' minimum WAITCNT instruction only takes 5 cycles.
+                        ' We need the first WAITCNT instruction to wait for
+                        ' the next hub access time window, which is 6 cycles
+                        ' later than the minimum time. 
+                        mov     clock, #6+5
                         add     clock, CNT
-'t0=-1 --> the ADD instruction gets CNT one cycle later than waitcnt compares it
-                        jmp     #StartMainLoop
+'tx=20 <-- The first WAITCNT should wait for 12 cycles total to accomplish tx=0 afterwards
                         
-
 '============================================================================
 ' Main loop: generate clock cycles to let the 65C02 run its program
 
-' NOTE: The following code was meticulously constructed to generate a loop
-' that executes at 1MHz when the Propeller runs at 80MHz. When the Propeller
-' runs at 100MHz, the 65C02 can be run at up to 1.25MHz.
-' The timing was based on the 65C02 datasheet from Western Design Center.
-' This may not run correctly on older (NMOS) 6502s because they may have
-' different timing requirements: especially the setup times at the start
-' of Phi1 are much longer for the original 6502 than for the 65C02.
-'
-' The timing values in comments are:
-' t0=The number of cycles from the point where CNT is added to the counter
-'    before the first loop. After the cog hits the hub instruction, there is
-'    a difference of 15 cycles between the best and worst case.
-'    By the time it hits the waitcnt instruction, t0 must be less than the
-'    initial cycle time value so that the waitcnt won't hang.
-' tx=The number of clock cycles from the point where the hub instruction gets
-'    access to the hub. By the time the cog gets back to the hub instruction
-'    again in the next loop (with waitcnt taking the best-case number of
-'    cycles), the next multiple of 16 is the minimum cycle time, because
-'    the hub instruction waits for 0..15 cycles depending on the hub access
-'    window. If tx is not a multiple of 16, the hub instruction will simply
-'    wait longer. Extra instructions can be added to the loop code until
-'    the maximum value of tx hits a multiple of 16. We strive to keep max-tx
-'    under 80 (5*16) to make the 6502 run at a maximum frequency of 1MHz
-'    when the Propeller runs at 80MHz.
-' tp=The number of clock cycles from the point where Phi1 starts, during
-'    normal loops (i.e. after the first loop). These numbers can be used for
-'    synchronization of other cogs with this cog.
-    
-                        ' Note: This is NOT the entry point to the main loop
-                        ' The entry point is further down.
-'t0=71
-'tn=71
-'tx=84
-'tp=63                        
+'tn=68
+'tx=4 
+'tp=72                        
 MainLoop
                         ' Wait for the end of the requested cycle time
                         ' Initialization may change the DJNZ at the end of the
                         ' loop so that this instruction is skipped.
                         waitcnt clock, g_cycletime
 
-'t0=77 --> 3 cycles to spare
-'tn=0/80 --> for subsequent loops, the minimum cycle time is 80
-'tx=93
-'tp=63 or 72+ --> depending on whether waitcnt is skipped                    
-NoWaitMainLoop
+'tn=0
+'tx=0
+'tp=72+                    
                         ' Turn off the Write Enable to the RAM.
                         ' In other 6502 systems, the RAM is usually disabled
                         ' BECAUSE (and therefore AFTER) the clock goes low (and
@@ -881,11 +881,9 @@ NoWaitMainLoop
                         ' we ensure that any data written to the RAM is stored
                         ' safely.
                         or      OUTA, mask_RAMWE
-
-'t0=3
 'tn=4
-'tx=16/97
-'tp=67 or 76+                       
+'tx=4
+'tp=76+
 StartMainLoop
                         ' This is the entry point to the main loop
                         '
@@ -897,9 +895,8 @@ StartMainLoop
                         ' Start by setting the clock LOW, starting PHI1.
                         andn    OUTA, mask_CLK0
 
-'t0=7
 'tn=8
-'tx=20/101
+'tx=8
 'tp=0                        
                         ' Check if another cog is keeping the clock in the high
                         ' state, indicating that they want us to stop running.
@@ -914,9 +911,8 @@ StartMainLoop
                         test    mask_CLK0, INA wc
         if_c            jmp     #EndMainLoop
 
-'t0=15
 'tn=16
-'tx=28/109
+'tx=0
 'tp=8                       
 Phi1Start
                         ' Initialize all output signals:
@@ -939,9 +935,8 @@ Phi1Start
                         '   read the address from P0..P15
                         mov     OUTA, out_PHI1
                         
-'t0=19
 'tn=20
-'tx=32/113
+'tx=4
 'tp=12                        
                         ' The 74*244 bus drivers are also enabled with the
                         ' previous instruction, but we have to wait for the
@@ -955,24 +950,21 @@ Phi1Start
                         ' shouldn't cause any damage.
                         mov     DIRA, dir_PHI1
 
-'t0=23
 'tn=24
-'tx=36/117
+'tx=8
 'tp=16
                         ' Other cogs should inspect the address during this
                         ' instruction (i.e. tp=16..22 or so)                        
                         test    mask_RW, INA wc
                         
-'t0=27
 'tn=28
-'tx=40/121
+'tx=12
 'tp=20                        
                         ' Deactivate the address buffers again
                         or      OUTA, mask_AEN
 
-'t0=31
 'tn=32
-'tx=44/125
+'tx=0
 'tp=24                        
                         ' Put the signals on the flip-flops on P8..P15. The
                         ' other cogs can override the signals by waiting for
@@ -982,9 +974,8 @@ Phi1Start
                         or      DIRA, mask_SIGNALS
                         or      OUTA, mask_SLC                        
 
-'t0=43
 'tn=44
-'tx=56/137
+'tx=12
 'tp=36                        
 Phi2Start                        
                         ' Start Phi2 by setting the clock high.
@@ -997,9 +988,8 @@ Phi2Start
                         ' signals is minimal.
                         or      OUTA, mask_CLK0
 
-'t0=47
 'tn=48
-'tx=60/141 --> 4/3 cycles before the next hub access window
+'tx=0
 'tp=40 --> Phi2 always starts at this point regardless of cycle time                        
                         ' There's not a whole lot that we need to do during
                         ' Phi2: this is when the 65C02 does its work.
@@ -1015,10 +1005,9 @@ Phi2Start
                         ' Setting the signals to 0 breaks out of the loop.
                         rdlong  g_signals, parm_pSignals wz
 
-'t0=59 --> 47 + 4 wait cycles + 8 execution cycles
-'tn=59 --> 48 + 3 wait cycles + 8 execution cycles
-'tx=72/152 --> 80 cycles apart = minimum duration after first loop
-'tp=51 --> 8 cycles for execution of hub instruction plus 3 wait cycles                        
+'tn=56
+'tx=8
+'tp=48                        
                         ' Enable the RAM depending on the R/!W output of the
                         ' 6502.
                         ' Any cogs that want to inhibit access to the RAM
@@ -1031,10 +1020,9 @@ Phi2Start
         if_nc           andn    OUTA, mask_RAMWE        ' 65C02 to RAM
         if_c            andn    OUTA, mask_RAMOE        ' RAM to 65C02
 
-'t0=67
-'tn=67
-'tx=80/160
-'tp=59                    
+'tn=64
+'tx=0
+'tp=56                    
 LoopIns                         
                         ' The DJNZ instruction conditionally jumps back to
                         ' the beginning, to wait for the system timer.
@@ -1140,4 +1128,5 @@ d1                      long    (|< 9)                  ' 1 as destination
 ' End
 
 ReusableHubMemEnd
+
                         fit

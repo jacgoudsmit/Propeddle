@@ -125,7 +125,7 @@ data                    long    0               ' Various data
 
 ' Instructions to patch into the main loop in read/write mode
 RWRangeTestIns1
-                        min     addr, g_MapPtr wc
+                        cmp     addr, g_MapPtr wc
 RWRangeTestIns2
         if_nc           cmp     g_Len, addr wc                        
 
@@ -186,7 +186,7 @@ AccessLoop
                         ' at initialization time so the if_nz condition is
                         ' removed.
 RangeTestIns1                         
-        if_nz           min     addr, g_MapPtr wc
+        if_nz           cmp     addr, g_MapPtr wc
 RangeTestIns2         
         if_nz_and_nc    cmp     g_Len, addr wc
 'tp=32 (113)

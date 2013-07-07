@@ -93,9 +93,9 @@ PUB testmain | i
 
   ctrl.SetSignal(hw#pin_RES, TRUE)
   text.str(string("Reset Off",13))
-  
+
   trace.Start(@tracedump, con_tracelen)
-  ctrl.Run(80, 40)
+  ctrl.Run(88, 40)
   repeat
     i := ctrl.RunWait(clkfreq + cnt)
     'text.dec(i)
