@@ -4,3 +4,4 @@ a.out
 *.cog
 *.map
 *.asm
+*.elf
