@@ -1,4 +1,4 @@
-Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 2/22/2014 4:08:41 PM
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 2/23/2014 5:24:37 PM
 
 BeginCmp
 TimeStamp = /5307CF80;
@@ -39,42 +39,35 @@ BeginCmp
 TimeStamp = /5307CF6D;
 Reference = D1;
 ValeurCmp = 1N4148;
-IdModule  = D3;
+IdModule  = DIODE;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6C;
 Reference = D2;
 ValeurCmp = 1N4148;
-IdModule  = D3;
+IdModule  = DIODE;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6B;
 Reference = D3;
 ValeurCmp = 1N4148;
-IdModule  = D3;
+IdModule  = DIODE;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6A;
 Reference = D4;
 ValeurCmp = 1N4148;
-IdModule  = D3;
+IdModule  = DIODE;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF69;
 Reference = D5;
 ValeurCmp = 1N4148;
-IdModule  = D3;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF67;
-Reference = GND12;
-ValeurCmp = ~;
-IdModule  = ;
+IdModule  = DIODE;
 EndCmp
 
 BeginCmp
@@ -158,20 +151,20 @@ BeginCmp
 TimeStamp = /5307CF82;
 Reference = J3;
 ValeurCmp = ~;
-IdModule  = ;
+IdModule  = PIN_ARRAY_16X2;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF81;
 Reference = J4;
 ValeurCmp = ~;
-IdModule  = ;
+IdModule  = PIN_ARRAY_16X2;
 EndCmp
 
 BeginCmp
 TimeStamp = /530940D2;
 Reference = J5;
-ValeurCmp = PROPEDDLE_EXPANSION2;
+ValeurCmp = EXPANSION PORT;
 IdModule  = PIN_ARRAY_20X2;
 EndCmp
 
