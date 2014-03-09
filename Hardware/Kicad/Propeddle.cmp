@@ -1,4 +1,4 @@
-Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 2/23/2014 5:24:37 PM
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 3/8/2014 8:54:28 PM
 
 BeginCmp
 TimeStamp = /5307CF80;
@@ -39,63 +39,35 @@ BeginCmp
 TimeStamp = /5307CF6D;
 Reference = D1;
 ValeurCmp = 1N4148;
-IdModule  = DIODE;
+IdModule  = DIODE_SMALL;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6C;
 Reference = D2;
 ValeurCmp = 1N4148;
-IdModule  = DIODE;
+IdModule  = DIODE_SMALL;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6B;
 Reference = D3;
 ValeurCmp = 1N4148;
-IdModule  = DIODE;
+IdModule  = DIODE_SMALL;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF6A;
 Reference = D4;
 ValeurCmp = 1N4148;
-IdModule  = DIODE;
+IdModule  = DIODE_SMALL;
 EndCmp
 
 BeginCmp
 TimeStamp = /5307CF69;
 Reference = D5;
 ValeurCmp = 1N4148;
-IdModule  = DIODE;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF5A;
-Reference = H1;
-ValeurCmp = MOUNT-HOLE3.2;
-IdModule  = ;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF59;
-Reference = H2;
-ValeurCmp = MOUNT-HOLE3.2;
-IdModule  = ;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF58;
-Reference = H3;
-ValeurCmp = MOUNT-HOLE3.2;
-IdModule  = ;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF57;
-Reference = H4;
-ValeurCmp = MOUNT-HOLE3.2;
-IdModule  = ;
+IdModule  = DIODE_SMALL;
 EndCmp
 
 BeginCmp
@@ -128,7 +100,7 @@ EndCmp
 
 BeginCmp
 TimeStamp = /5307CF86;
-Reference = IC6;
+Reference = IC5;
 ValeurCmp = AS6C1008-55PCN;
 IdModule  = DIP-32__600;
 EndCmp
@@ -180,13 +152,6 @@ TimeStamp = /5307CF1D;
 Reference = JP2;
 ValeurCmp = PWR;
 IdModule  = PIN_ARRAY_3X1;
-EndCmp
-
-BeginCmp
-TimeStamp = /5307CF1C;
-Reference = LOGO1;
-ValeurCmp = ~;
-IdModule  = ;
 EndCmp
 
 BeginCmp

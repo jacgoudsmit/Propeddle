@@ -1,7 +1,7 @@
 (export (version D)
   (design
     (source C:/Users/Jac/Documents/Propeller/Propeddle/Hardware/Kicad/Propeddle.sch)
-    (date "2/24/2014 12:44:31 AM")
+    (date "3/8/2014 9:01:28 PM")
     (tool "eeschema (2013-07-07 BZR 4022)-stable"))
   (components
     (comp (ref C1)
