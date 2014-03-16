@@ -9,7 +9,7 @@ $Descr B 17000 11000
 encoding utf-8
 Sheet 1 1
 Title "Propeddle - Software-defined 6502 Computer"
-Date "24 feb 2014"
+Date "16 mar 2014"
 Rev "8A"
 Comp ""
 Comment1 "http://www.propeddle.com"
@@ -1140,21 +1140,21 @@ F 3 "" H 8350 4800 60  0000 C CNN
 	1    0    0    -1  
 $EndComp
 Text Label 3250 900  0    60   ~ 0
-VIN
+VIN_
 Text Label 2450 900  0    60   ~ 0
-VIN
+VIN_
 Text Label 2450 1000 0    60   ~ 0
-V5
+V5_
 Text Label 3250 1000 0    60   ~ 0
-V5
+V5_
 Text Label 3250 1100 0    60   ~ 0
-V33
+V33_
 Text Label 3250 1200 0    60   ~ 0
 GND
 Text Label 2450 1200 0    60   ~ 0
 GND
 Text Label 2450 1100 0    60   ~ 0
-V33
+V33_
 Entry Wire Line
 	6900 2300 7000 2400
 Entry Wire Line
@@ -2615,4 +2615,6 @@ Wire Wire Line
 	5500 1000 5500 900 
 Wire Wire Line
 	9400 8550 9400 8450
+Wire Wire Line
+	8350 4900 8350 4800
 $EndSCHEMATC
