@@ -14,7 +14,7 @@ encoding utf-8
 Sheet 4 7
 Title "Propeddle"
 Date "18 apr 2014"
-Rev "10"
+Rev "11"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
 Comment2 "http://www.propeddle.com"
@@ -22,10 +22,10 @@ Comment3 ""
 Comment4 ""
 $EndDescr
 $Comp
-L GND #PWR025
+L GND #PWR027
 U 1 1 5339E09A
 P 4950 5900
-F 0 "#PWR025" H 4950 5900 30  0001 C CNN
+F 0 "#PWR027" H 4950 5900 30  0001 C CNN
 F 1 "GND" H 4950 5830 30  0001 C CNN
 F 2 "" H 4950 5900 60  0000 C CNN
 F 3 "" H 4950 5900 60  0000 C CNN
@@ -129,10 +129,10 @@ Text HLabel 6550 3500 2    50   Input ~ 0
 Text HLabel 6550 3600 2    50   Input ~ 0
 ~SO
 $Comp
-L VCC #PWR026
+L VCC #PWR028
 U 1 1 5346220A
 P 4950 2500
-F 0 "#PWR026" H 4950 2600 30  0001 C CNN
+F 0 "#PWR028" H 4950 2600 30  0001 C CNN
 F 1 "VCC" H 4950 2600 30  0000 C CNN
 F 2 "" H 4950 2500 60  0000 C CNN
 F 3 "" H 4950 2500 60  0000 C CNN

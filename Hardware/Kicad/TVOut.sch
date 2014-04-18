@@ -14,7 +14,7 @@ encoding utf-8
 Sheet 6 7
 Title "Propeddle"
 Date "18 apr 2014"
-Rev "10"
+Rev "11"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
 Comment2 "http://www.propeddle.com"
@@ -33,10 +33,10 @@ F 3 "~" H 6250 3900 60  0000 C CNN
 	1    0    0    1   
 $EndComp
 $Comp
-L GND #PWR030
+L GND #PWR032
 U 1 1 534327AA
 P 5900 4150
-F 0 "#PWR030" H 5900 4150 30  0001 C CNN
+F 0 "#PWR032" H 5900 4150 30  0001 C CNN
 F 1 "GND" H 5900 4080 30  0001 C CNN
 F 2 "" H 5900 4150 60  0000 C CNN
 F 3 "" H 5900 4150 60  0000 C CNN

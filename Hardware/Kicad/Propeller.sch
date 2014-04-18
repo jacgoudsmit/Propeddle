@@ -14,7 +14,7 @@ encoding utf-8
 Sheet 2 7
 Title "Propeddle"
 Date "18 apr 2014"
-Rev "10"
+Rev "11"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
 Comment2 "http://www.propeddle.com"

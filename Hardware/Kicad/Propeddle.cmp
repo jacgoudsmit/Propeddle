@@ -1,4 +1,4 @@
-Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/13/2014 10:36:37 PM
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/18/2014 10:36:39 AM
 
 BeginCmp
 TimeStamp = /53383CD0;
@@ -85,6 +85,20 @@ IdModule  = C1;
 EndCmp
 
 BeginCmp
+TimeStamp = /5351CB9E;
+Reference = D101;
+ValeurCmp = DEBUG;
+IdModule  = 00JG-LED5MM;
+EndCmp
+
+BeginCmp
+TimeStamp = /5339C0F7/53519983;
+Reference = D301;
+ValeurCmp = POWER;
+IdModule  = 00JG-LED5MM;
+EndCmp
+
+BeginCmp
 TimeStamp = /5338388A;
 Reference = IC101;
 ValeurCmp = 74HC574N;
@@ -164,7 +178,7 @@ EndCmp
 BeginCmp
 TimeStamp = /53485EB2;
 Reference = P101;
-ValeurCmp = DEBUG P21 VGA;
+ValeurCmp = DEBUG P20 VGA;
 IdModule  = PIN_ARRAY_3X1;
 EndCmp
 
@@ -239,9 +253,23 @@ IdModule  = 00JG-RPACK16;
 EndCmp
 
 BeginCmp
+TimeStamp = /5351CBAA;
+Reference = R103;
+ValeurCmp = 82;
+IdModule  = R4;
+EndCmp
+
+BeginCmp
 TimeStamp = /53387CA7/533850CA;
 Reference = R201;
 ValeurCmp = 10K;
+IdModule  = R4;
+EndCmp
+
+BeginCmp
+TimeStamp = /5339C0F7/535199A1;
+Reference = R301;
+ValeurCmp = 82;
 IdModule  = R4;
 EndCmp
 
@@ -311,56 +339,35 @@ EndCmp
 BeginCmp
 TimeStamp = /534353CC/5343593B;
 Reference = R701;
-ValeurCmp = 240;
-IdModule  = R4;
-EndCmp
-
-BeginCmp
-TimeStamp = /534353CC/5343596E;
-Reference = R702;
-ValeurCmp = 470;
+ValeurCmp = 270;
 IdModule  = R4;
 EndCmp
 
 BeginCmp
 TimeStamp = /534353CC/5343594D;
 Reference = R703;
-ValeurCmp = 240;
-IdModule  = R4;
-EndCmp
-
-BeginCmp
-TimeStamp = /534353CC/53435963;
-Reference = R704;
-ValeurCmp = 470;
+ValeurCmp = 270;
 IdModule  = R4;
 EndCmp
 
 BeginCmp
 TimeStamp = /534353CC/53435953;
 Reference = R705;
-ValeurCmp = 240;
-IdModule  = R4;
-EndCmp
-
-BeginCmp
-TimeStamp = /534353CC/53435974;
-Reference = R706;
-ValeurCmp = 470;
+ValeurCmp = 270;
 IdModule  = R4;
 EndCmp
 
 BeginCmp
 TimeStamp = /534353CC/5343597A;
 Reference = R707;
-ValeurCmp = 240;
+ValeurCmp = 270;
 IdModule  = R4;
 EndCmp
 
 BeginCmp
 TimeStamp = /534353CC/53435980;
 Reference = R708;
-ValeurCmp = 240;
+ValeurCmp = 270;
 IdModule  = R4;
 EndCmp
 
@@ -368,7 +375,7 @@ BeginCmp
 TimeStamp = /534A34FA;
 Reference = SW101;
 ValeurCmp = RESET;
-IdModule  = 00JG-PUSHBUTTON_90_1825027;
+IdModule  = 00JG-PUSHBUTTON;
 EndCmp
 
 BeginCmp

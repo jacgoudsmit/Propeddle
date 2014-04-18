@@ -14,7 +14,7 @@ encoding utf-8
 Sheet 3 7
 Title "Propeddle"
 Date "18 apr 2014"
-Rev "10"
+Rev "11"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
 Comment2 "http://www.propeddle.com"
@@ -220,5 +220,49 @@ F 2 "~" H 7600 4150 60  0000 C CNN
 F 3 "~" H 7600 4150 60  0000 C CNN
 	1    7600 4150
 	0    -1   1    0   
+$EndComp
+$Comp
+L LED D301
+U 1 1 53519983
+P 8450 3800
+F 0 "D301" H 8200 3850 60  0000 C CNN
+F 1 "POWER" H 8450 3600 60  0000 C CNN
+F 2 "" H 8450 3800 60  0000 C CNN
+F 3 "" H 8450 3800 60  0000 C CNN
+	1    8450 3800
+	0    1    1    0   
+$EndComp
+$Comp
+L GND #PWR025
+U 1 1 53519992
+P 8450 4100
+F 0 "#PWR025" H 8450 4100 30  0001 C CNN
+F 1 "GND" H 8450 4030 30  0001 C CNN
+F 2 "" H 8450 4100 60  0000 C CNN
+F 3 "" H 8450 4100 60  0000 C CNN
+	1    8450 4100
+	1    0    0    -1  
+$EndComp
+$Comp
+L R R301
+U 1 1 535199A1
+P 8450 3250
+F 0 "R301" V 8530 3250 40  0000 C CNN
+F 1 "82" V 8457 3251 40  0000 C CNN
+F 2 "~" V 8380 3250 30  0000 C CNN
+F 3 "~" H 8450 3250 30  0000 C CNN
+	1    8450 3250
+	1    0    0    -1  
+$EndComp
+$Comp
+L +3.3V #PWR026
+U 1 1 535199B0
+P 8450 3000
+F 0 "#PWR026" H 8450 2960 30  0001 C CNN
+F 1 "+3.3V" H 8450 3110 30  0000 C CNN
+F 2 "" H 8450 3000 60  0000 C CNN
+F 3 "" H 8450 3000 60  0000 C CNN
+	1    8450 3000
+	1    0    0    -1  
 $EndComp
 $EndSCHEMATC
