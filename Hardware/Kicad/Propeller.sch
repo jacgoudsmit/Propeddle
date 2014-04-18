@@ -13,7 +13,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 2 7
 Title "Propeddle"
-Date "8 apr 2014"
+Date "18 apr 2014"
 Rev "10"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
@@ -190,7 +190,7 @@ Connection ~ 5900 3650
 Wire Wire Line
 	6700 2600 6700 2800
 Wire Wire Line
-	6700 2800 6850 2800
+	6700 2800 7150 2800
 Text HLabel 5400 1600 0    50   BiDi ~ 0
 P0
 Text HLabel 5400 1700 0    50   BiDi ~ 0
@@ -307,4 +307,7 @@ F 3 "" H 5900 4550 60  0000 C CNN
 	1    5900 4550
 	1    0    0    -1  
 $EndComp
+Connection ~ 6850 2800
+Text Label 7150 2800 0    50   ~ 0
+XI
 $EndSCHEMATC

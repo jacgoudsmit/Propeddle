@@ -13,7 +13,7 @@ $Descr B 17000 11000
 encoding utf-8
 Sheet 1 7
 Title "Propeddle"
-Date "8 apr 2014"
+Date "18 apr 2014"
 Rev "10"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
@@ -687,21 +687,21 @@ Text GLabel 12450 2500 2    50   Input ~ 0
 RA14
 Text GLabel 12450 2600 2    50   Input ~ 0
 RA15
-Text GLabel 2450 2200 2    50   3State ~ 0
+Text GLabel 2450 750  2    50   3State ~ 0
 RA8
-Text GLabel 2450 2400 2    50   3State ~ 0
+Text GLabel 2450 950  2    50   3State ~ 0
 RA10
-Text GLabel 2450 2600 2    50   3State ~ 0
+Text GLabel 2450 1150 2    50   3State ~ 0
 RA12
-Text GLabel 2450 2800 2    50   3State ~ 0
+Text GLabel 2450 1350 2    50   3State ~ 0
 RA14
-Text GLabel 2450 2300 2    50   3State ~ 0
+Text GLabel 2450 850  2    50   3State ~ 0
 RA9
-Text GLabel 2450 2500 2    50   3State ~ 0
+Text GLabel 2450 1050 2    50   3State ~ 0
 RA11
-Text GLabel 2450 2700 2    50   3State ~ 0
+Text GLabel 2450 1250 2    50   3State ~ 0
 RA13
-Text GLabel 2450 2900 2    50   3State ~ 0
+Text GLabel 2450 1450 2    50   3State ~ 0
 RA15
 Text GLabel 2400 5750 0    50   BiDi ~ 0
 P0
@@ -813,7 +813,7 @@ Text GLabel 12400 3450 0    50   BiDi ~ 0
 P23
 Text GLabel 11650 3700 2    50   Output ~ 0
 SLC
-Text GLabel 11650 3150 2    50   Output ~ 0
+Text GLabel 11650 3250 2    50   Output ~ 0
 ~RAMOE
 Text GLabel 11650 3350 2    50   Output ~ 0
 ~RAMWE
@@ -833,11 +833,11 @@ Text GLabel 12450 2750 2    50   Output ~ 0
 VGAV
 Text GLabel 12450 2850 2    50   Output ~ 0
 VGAH
-Text GLabel 12450 3050 2    50   Output ~ 0
-VGAB1
-Text GLabel 11800 6050 0    50   Output ~ 0
-VGAG1
 Text GLabel 12450 2950 2    50   Output ~ 0
+VGAB1
+Text GLabel 12450 3050 2    50   Output ~ 0
+VGAG1
+Text GLabel 11800 6050 0    50   Output ~ 0
 VGAR1
 Text GLabel 11650 4000 2    50   Output ~ 0
 CLK0
@@ -895,53 +895,53 @@ Text GLabel 11650 1150 2    50   BiDi ~ 0
 QA1
 Text GLabel 11650 1050 2    50   BiDi ~ 0
 QA0
-Text GLabel 2450 3350 2    50   3State ~ 0
+Text GLabel 2450 1900 2    50   3State ~ 0
 RA0
-Text GLabel 2450 3550 2    50   3State ~ 0
+Text GLabel 2450 2100 2    50   3State ~ 0
 RA2
-Text GLabel 2450 3750 2    50   3State ~ 0
+Text GLabel 2450 2300 2    50   3State ~ 0
 RA4
-Text GLabel 2450 3950 2    50   3State ~ 0
+Text GLabel 2450 2500 2    50   3State ~ 0
 RA6
-Text GLabel 2450 3450 2    50   3State ~ 0
+Text GLabel 2450 2000 2    50   3State ~ 0
 RA1
-Text GLabel 2450 3650 2    50   3State ~ 0
+Text GLabel 2450 2200 2    50   3State ~ 0
 RA3
-Text GLabel 2450 3850 2    50   3State ~ 0
+Text GLabel 2450 2400 2    50   3State ~ 0
 RA5
-Text GLabel 2450 4050 2    50   3State ~ 0
+Text GLabel 2450 2600 2    50   3State ~ 0
 RA7
-Text GLabel 1550 3350 0    50   Input ~ 0
+Text GLabel 1550 1900 0    50   Input ~ 0
 QA0
-Text GLabel 1550 3550 0    50   Input ~ 0
+Text GLabel 1550 2100 0    50   Input ~ 0
 QA2
-Text GLabel 1550 3750 0    50   Input ~ 0
-QA4
-Text GLabel 1550 3950 0    50   Input ~ 0
-QA6
-Text GLabel 1550 3450 0    50   Input ~ 0
-QA1
-Text GLabel 1550 3650 0    50   Input ~ 0
-QA3
-Text GLabel 1550 3850 0    50   Input ~ 0
-QA5
-Text GLabel 1550 4050 0    50   Input ~ 0
-QA7
-Text GLabel 1550 2200 0    50   Input ~ 0
-QA8
-Text GLabel 1550 2400 0    50   Input ~ 0
-QA10
-Text GLabel 1550 2600 0    50   Input ~ 0
-QA12
-Text GLabel 1550 2800 0    50   Input ~ 0
-QA14
 Text GLabel 1550 2300 0    50   Input ~ 0
-QA9
+QA4
 Text GLabel 1550 2500 0    50   Input ~ 0
+QA6
+Text GLabel 1550 2000 0    50   Input ~ 0
+QA1
+Text GLabel 1550 2200 0    50   Input ~ 0
+QA3
+Text GLabel 1550 2400 0    50   Input ~ 0
+QA5
+Text GLabel 1550 2600 0    50   Input ~ 0
+QA7
+Text GLabel 1550 750  0    50   Input ~ 0
+QA8
+Text GLabel 1550 950  0    50   Input ~ 0
+QA10
+Text GLabel 1550 1150 0    50   Input ~ 0
+QA12
+Text GLabel 1550 1350 0    50   Input ~ 0
+QA14
+Text GLabel 1550 850  0    50   Input ~ 0
+QA9
+Text GLabel 1550 1050 0    50   Input ~ 0
 QA11
-Text GLabel 1550 2700 0    50   Input ~ 0
+Text GLabel 1550 1250 0    50   Input ~ 0
 QA13
-Text GLabel 1550 2900 0    50   Input ~ 0
+Text GLabel 1550 1450 0    50   Input ~ 0
 QA15
 Text GLabel 3400 2500 0    50   BiDi ~ 0
 QA0
@@ -976,21 +976,21 @@ QA13
 Text GLabel 3400 3400 0    50   BiDi ~ 0
 QA15
 Wire Wire Line
-	2450 3350 2250 3350
+	2450 1900 2250 1900
 Wire Wire Line
-	2450 3450 2250 3450
+	2450 2000 2250 2000
 Wire Wire Line
-	2450 3550 2250 3550
+	2450 2100 2250 2100
 Wire Wire Line
-	2450 3650 2250 3650
+	2450 2200 2250 2200
 Wire Wire Line
-	2450 3750 2250 3750
+	2450 2300 2250 2300
 Wire Wire Line
-	2450 3850 2250 3850
+	2450 2400 2250 2400
 Wire Wire Line
-	2450 3950 2250 3950
+	2450 2500 2250 2500
 Wire Wire Line
-	2450 4050 2250 4050
+	2450 2600 2250 2600
 Wire Wire Line
 	5700 7150 6100 7150
 Wire Wire Line
@@ -1002,39 +1002,39 @@ Wire Wire Line
 Wire Wire Line
 	7000 3900 7350 3900
 Wire Wire Line
-	1550 3350 1750 3350
+	1550 1900 1750 1900
 Wire Wire Line
-	1550 3450 1750 3450
+	1550 2000 1750 2000
 Wire Wire Line
-	1550 3550 1750 3550
+	1550 2100 1750 2100
 Wire Wire Line
-	1550 3650 1750 3650
+	1550 2200 1750 2200
 Wire Wire Line
-	1550 3750 1750 3750
+	1550 2300 1750 2300
 Wire Wire Line
-	1550 3850 1750 3850
+	1550 2400 1750 2400
 Wire Wire Line
-	1550 3950 1750 3950
+	1550 2500 1750 2500
 Wire Wire Line
-	1550 4050 1750 4050
+	1550 2600 1750 2600
 Wire Wire Line
 	10000 3700 10000 3800
 Wire Wire Line
-	2250 2200 2450 2200
+	2250 750  2450 750 
 Wire Wire Line
-	2250 2300 2450 2300
+	2250 850  2450 850 
 Wire Wire Line
-	2250 2400 2450 2400
+	2250 950  2450 950 
 Wire Wire Line
-	2250 2500 2450 2500
+	2250 1050 2450 1050
 Wire Wire Line
-	2250 2600 2450 2600
+	2250 1150 2450 1150
 Wire Wire Line
-	2250 2700 2450 2700
+	2250 1250 2450 1250
 Wire Wire Line
-	2250 2800 2450 2800
+	2250 1350 2450 1350
 Wire Wire Line
-	2250 2900 2450 2900
+	2250 1450 2450 1450
 Wire Wire Line
 	10000 3800 9950 3800
 Wire Wire Line
@@ -1082,21 +1082,21 @@ Wire Wire Line
 	9000 7750 9500 7750
 Connection ~ 9500 7750
 Wire Wire Line
-	1550 2900 1750 2900
+	1550 1450 1750 1450
 Wire Wire Line
-	1550 2800 1750 2800
+	1550 1350 1750 1350
 Wire Wire Line
-	1550 2700 1750 2700
+	1550 1250 1750 1250
 Wire Wire Line
-	1550 2600 1750 2600
+	1550 1150 1750 1150
 Wire Wire Line
-	1550 2500 1750 2500
+	1550 1050 1750 1050
 Wire Wire Line
-	1550 2400 1750 2400
+	1550 950  1750 950 
 Wire Wire Line
-	1550 2300 1750 2300
+	1550 850  1750 850 
 Wire Wire Line
-	1550 2200 1750 2200
+	1550 750  1750 750 
 Wire Wire Line
 	4450 4400 4400 4400
 Wire Wire Line
@@ -1371,28 +1371,6 @@ Connection ~ 10600 9600
 Wire Wire Line
 	10600 9400 11000 9400
 Connection ~ 10600 9400
-$Comp
-L 00JG-RPACK_ISOLATED R102
-U 1 1 53469E35
-P 2000 3700
-F 0 "R102" H 2000 3250 60  0000 C CNN
-F 1 "8x 2K7" H 2000 4150 60  0000 C CNN
-F 2 "" H 2000 3700 60  0000 C CNN
-F 3 "" H 2000 3700 60  0000 C CNN
-	1    2000 3700
-	1    0    0    -1  
-$EndComp
-$Comp
-L 00JG-RPACK_ISOLATED R101
-U 1 1 5346A526
-P 2000 2550
-F 0 "R101" H 2000 2100 60  0000 C CNN
-F 1 "8x 2K7" H 2000 3000 60  0000 C CNN
-F 2 "" H 2000 2550 60  0000 C CNN
-F 3 "" H 2000 2550 60  0000 C CNN
-	1    2000 2550
-	1    0    0    -1  
-$EndComp
 Text GLabel 7000 3450 2    50   Output ~ 0
 SYNC
 Text GLabel 7000 3550 2    50   Output ~ 0
@@ -1411,7 +1389,7 @@ F 3 "~" H 12200 6150 60  0000 C CNN
 	1    0    0    1   
 $EndComp
 Text GLabel 11800 6150 0    50   BiDi ~ 0
-P21
+P20
 Text GLabel 11800 6250 0    50   Input ~ 0
 RDEBUG
 Wire Wire Line
@@ -1477,17 +1455,6 @@ F 3 "~" H 11000 6650 60  0000 C CNN
 	1    11000 6650
 	0    -1   -1   0   
 $EndComp
-$Comp
-L CONN_20X2 P103
-U 1 1 534AEA58
-P 14500 6650
-F 0 "P103" H 14500 7700 60  0000 C CNN
-F 1 "EXPANSION PORT" V 14500 6650 50  0000 C CNN
-F 2 "" H 14500 6650 60  0000 C CNN
-F 3 "" H 14500 6650 60  0000 C CNN
-	1    14500 6650
-	1    0    0    -1  
-$EndComp
 Text GLabel 9300 6500 0    50   Input ~ 0
 ~BE
 Text GLabel 9700 6500 2    50   3State ~ 0
@@ -1502,84 +1469,373 @@ Text GLabel 7100 6550 2    50   Output ~ 0
 ~BE
 Text Notes 9450 2050 0    50   ~ 0
 NOTE: D0 and D2 switched\nfor easier PCB routing.
-Text GLabel 14100 6400 0    50   BiDi ~ 0
-D0
-Text GLabel 14100 6500 0    50   BiDi ~ 0
-D2
-Text GLabel 14100 6600 0    50   BiDi ~ 0
-D4
-Text GLabel 14100 6700 0    50   BiDi ~ 0
-D6
-Text GLabel 14900 6400 2    50   BiDi ~ 0
-D1
-Text GLabel 14900 6500 2    50   BiDi ~ 0
-D3
-Text GLabel 14900 6600 2    50   BiDi ~ 0
-D5
-Text GLabel 14900 6700 2    50   BiDi ~ 0
-D7
-Text GLabel 14100 6800 0    50   Input ~ 0
-A0
-Text GLabel 14100 6900 0    50   Input ~ 0
-A2
-Text GLabel 14100 7000 0    50   Input ~ 0
-A4
-Text GLabel 14100 7100 0    50   Input ~ 0
-A6
-Text GLabel 14100 7200 0    50   Input ~ 0
-A8
-Text GLabel 14100 7300 0    50   Input ~ 0
-A10
-Text GLabel 14100 7400 0    50   Input ~ 0
-A12
-Text GLabel 14100 7500 0    50   Input ~ 0
-A14
-Text GLabel 14900 6800 2    50   Input ~ 0
-A1
-Text GLabel 14900 6900 2    50   Input ~ 0
-A3
-Text GLabel 14900 7000 2    50   Input ~ 0
-A5
-Text GLabel 14900 7100 2    50   Input ~ 0
-A7
-Text GLabel 14900 7200 2    50   Input ~ 0
-A9
-Text GLabel 14900 7300 2    50   Input ~ 0
-A11
-Text GLabel 14900 7400 2    50   Input ~ 0
-A13
-Text GLabel 14900 7500 2    50   Input ~ 0
-A15
-Text GLabel 14100 7600 0    50   Input ~ 0
-RAMA16
-Text GLabel 14900 5700 2    50   3State ~ 0
-~RESET
-Text GLabel 14900 6100 2    50   3State ~ 0
-~RES
-Text GLabel 14900 6300 2    50   Input ~ 0
-R/~W
-Text GLabel 14900 6200 2    50   Input ~ 0
-CLK0
-Text GLabel 14100 6200 0    50   Input ~ 0
-CLK2
-Text GLabel 14100 6300 0    50   Input ~ 0
-SYNC
-Text GLabel 14100 6100 0    50   3State ~ 0
-~SO
-Text GLabel 14900 5800 2    50   3State ~ 0
-BE
-Text GLabel 14900 6000 2    50   3State ~ 0
-~NMI
-Text GLabel 14100 6000 0    50   3State ~ 0
-~IRQ
-Text GLabel 14900 5900 2    50   3State ~ 0
-RDY
-Text GLabel 14900 7600 2    50   Input ~ 0
-SETUP
-Text GLabel 14100 5700 0    50   UnSpc ~ 0
+Text GLabel 14100 5800 0    50   UnSpc ~ 0
 GND
 Text GLabel 14100 5900 0    50   UnSpc ~ 0
 VCC
-Text GLabel 14100 5800 0    50   UnSpc ~ 0
+Text GLabel 14100 5700 0    50   UnSpc ~ 0
 GND
+Text GLabel 14900 7600 2    50   Input ~ 0
+SETUP
+Text GLabel 14900 5900 2    50   3State ~ 0
+RDY
+Text GLabel 14100 6000 0    50   3State ~ 0
+~IRQ
+Text GLabel 14900 6000 2    50   3State ~ 0
+~NMI
+Text GLabel 14900 5700 2    50   3State ~ 0
+BE
+Text GLabel 14100 6100 0    50   3State ~ 0
+~SO
+Text GLabel 14100 6300 0    50   Input ~ 0
+SYNC
+Text GLabel 14100 6200 0    50   Input ~ 0
+CLK2
+Text GLabel 14900 6200 2    50   Input ~ 0
+CLK0
+Text GLabel 14900 6300 2    50   Input ~ 0
+R/~W
+Text GLabel 14900 6100 2    50   3State ~ 0
+~RES
+Text GLabel 14900 5800 2    50   3State ~ 0
+~RESET
+Text GLabel 14100 7600 0    50   Input ~ 0
+RAMA16
+Text GLabel 14900 7500 2    50   Input ~ 0
+A15
+Text GLabel 14900 7400 2    50   Input ~ 0
+A13
+Text GLabel 14900 7300 2    50   Input ~ 0
+A11
+Text GLabel 14900 7200 2    50   Input ~ 0
+A9
+Text GLabel 14900 7100 2    50   Input ~ 0
+A7
+Text GLabel 14900 7000 2    50   Input ~ 0
+A5
+Text GLabel 14900 6900 2    50   Input ~ 0
+A3
+Text GLabel 14900 6800 2    50   Input ~ 0
+A1
+Text GLabel 14100 7500 0    50   Input ~ 0
+A14
+Text GLabel 14100 7400 0    50   Input ~ 0
+A12
+Text GLabel 14100 7300 0    50   Input ~ 0
+A10
+Text GLabel 14100 7200 0    50   Input ~ 0
+A8
+Text GLabel 14100 7100 0    50   Input ~ 0
+A6
+Text GLabel 14100 7000 0    50   Input ~ 0
+A4
+Text GLabel 14100 6900 0    50   Input ~ 0
+A2
+Text GLabel 14100 6800 0    50   Input ~ 0
+A0
+Text GLabel 14900 6700 2    50   BiDi ~ 0
+D7
+Text GLabel 14900 6600 2    50   BiDi ~ 0
+D5
+Text GLabel 14900 6500 2    50   BiDi ~ 0
+D3
+Text GLabel 14900 6400 2    50   BiDi ~ 0
+D1
+Text GLabel 14100 6700 0    50   BiDi ~ 0
+D6
+Text GLabel 14100 6600 0    50   BiDi ~ 0
+D4
+Text GLabel 14100 6500 0    50   BiDi ~ 0
+D2
+Text GLabel 14100 6400 0    50   BiDi ~ 0
+D0
+$Comp
+L CONN_20X2 P103
+U 1 1 534AEA58
+P 14500 6650
+F 0 "P103" H 14500 7700 60  0000 C CNN
+F 1 "EXPANSION PORT" V 14500 6650 50  0000 C CNN
+F 2 "" H 14500 6650 60  0000 C CNN
+F 3 "" H 14500 6650 60  0000 C CNN
+	1    14500 6650
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-RPACK_ISOLATED R101
+U 1 1 534C5EB3
+P 2000 1100
+F 0 "R101" H 2000 650 60  0000 C CNN
+F 1 "8x 2K7 (5V only)" H 2000 1550 60  0000 C CNN
+F 2 "~" H 2000 1100 60  0000 C CNN
+F 3 "~" H 2000 1100 60  0000 C CNN
+	1    2000 1100
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-RPACK_ISOLATED R102
+U 1 1 534C5FC2
+P 2000 2250
+F 0 "R102" H 2000 1800 60  0000 C CNN
+F 1 "8x 2K7 (5V only)" H 2000 2700 60  0000 C CNN
+F 2 "~" H 2000 2250 60  0000 C CNN
+F 3 "~" H 2000 2250 60  0000 C CNN
+	1    2000 2250
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U101
+U 1 1 534CF2DE
+P 2000 2900
+F 0 "U101" H 1900 2950 60  0000 C CNN
+F 1 "~" H 2300 2850 60  0000 C CNN
+F 2 "" H 2000 2900 60  0000 C CNN
+F 3 "" H 2000 2900 60  0000 C CNN
+	1    2000 2900
+	1    0    0    -1  
+$EndComp
+Text GLabel 1800 3900 0    50   Input ~ 0
+QA0
+Text GLabel 1800 4100 0    50   Input ~ 0
+QA2
+Text GLabel 1800 4300 0    50   Input ~ 0
+QA4
+Text GLabel 1800 4500 0    50   Input ~ 0
+QA6
+Text GLabel 1800 4000 0    50   Input ~ 0
+QA1
+Text GLabel 1800 4200 0    50   Input ~ 0
+QA3
+Text GLabel 1800 4400 0    50   Input ~ 0
+QA5
+Text GLabel 1800 4600 0    50   Input ~ 0
+QA7
+Text GLabel 1800 2900 0    50   Input ~ 0
+QA8
+Text GLabel 1800 3100 0    50   Input ~ 0
+QA10
+Text GLabel 1800 3300 0    50   Input ~ 0
+QA12
+Text GLabel 1800 3500 0    50   Input ~ 0
+QA14
+Text GLabel 1800 3000 0    50   Input ~ 0
+QA9
+Text GLabel 1800 3200 0    50   Input ~ 0
+QA11
+Text GLabel 1800 3400 0    50   Input ~ 0
+QA13
+Text GLabel 1800 3600 0    50   Input ~ 0
+QA15
+$Comp
+L 00JG-SHORT U102
+U 1 1 534D13A8
+P 2000 3000
+F 0 "U102" H 1900 3050 60  0000 C CNN
+F 1 "~" H 2300 2950 60  0000 C CNN
+F 2 "" H 2000 3000 60  0000 C CNN
+F 3 "" H 2000 3000 60  0000 C CNN
+	1    2000 3000
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U103
+U 1 1 534D13AE
+P 2000 3100
+F 0 "U103" H 1900 3150 60  0000 C CNN
+F 1 "~" H 2300 3050 60  0000 C CNN
+F 2 "" H 2000 3100 60  0000 C CNN
+F 3 "" H 2000 3100 60  0000 C CNN
+	1    2000 3100
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U104
+U 1 1 534D13B4
+P 2000 3200
+F 0 "U104" H 1900 3250 60  0000 C CNN
+F 1 "~" H 2300 3150 60  0000 C CNN
+F 2 "" H 2000 3200 60  0000 C CNN
+F 3 "" H 2000 3200 60  0000 C CNN
+	1    2000 3200
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U105
+U 1 1 534D15BE
+P 2000 3300
+F 0 "U105" H 1900 3350 60  0000 C CNN
+F 1 "~" H 2300 3250 60  0000 C CNN
+F 2 "" H 2000 3300 60  0000 C CNN
+F 3 "" H 2000 3300 60  0000 C CNN
+	1    2000 3300
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U106
+U 1 1 534D15C4
+P 2000 3400
+F 0 "U106" H 1900 3450 60  0000 C CNN
+F 1 "~" H 2300 3350 60  0000 C CNN
+F 2 "" H 2000 3400 60  0000 C CNN
+F 3 "" H 2000 3400 60  0000 C CNN
+	1    2000 3400
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U107
+U 1 1 534D15CA
+P 2000 3500
+F 0 "U107" H 1900 3550 60  0000 C CNN
+F 1 "~" H 2300 3450 60  0000 C CNN
+F 2 "" H 2000 3500 60  0000 C CNN
+F 3 "" H 2000 3500 60  0000 C CNN
+	1    2000 3500
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U108
+U 1 1 534D15D0
+P 2000 3600
+F 0 "U108" H 1900 3650 60  0000 C CNN
+F 1 "~" H 2300 3550 60  0000 C CNN
+F 2 "" H 2000 3600 60  0000 C CNN
+F 3 "" H 2000 3600 60  0000 C CNN
+	1    2000 3600
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U109
+U 1 1 534D16D8
+P 2000 3900
+F 0 "U109" H 1900 3950 60  0000 C CNN
+F 1 "~" H 2300 3850 60  0000 C CNN
+F 2 "" H 2000 3900 60  0000 C CNN
+F 3 "" H 2000 3900 60  0000 C CNN
+	1    2000 3900
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U110
+U 1 1 534D16DE
+P 2000 4000
+F 0 "U110" H 1900 4050 60  0000 C CNN
+F 1 "~" H 2300 3950 60  0000 C CNN
+F 2 "" H 2000 4000 60  0000 C CNN
+F 3 "" H 2000 4000 60  0000 C CNN
+	1    2000 4000
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U111
+U 1 1 534D16E4
+P 2000 4100
+F 0 "U111" H 1900 4150 60  0000 C CNN
+F 1 "~" H 2300 4050 60  0000 C CNN
+F 2 "" H 2000 4100 60  0000 C CNN
+F 3 "" H 2000 4100 60  0000 C CNN
+	1    2000 4100
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U112
+U 1 1 534D16EA
+P 2000 4200
+F 0 "U112" H 1900 4250 60  0000 C CNN
+F 1 "~" H 2300 4150 60  0000 C CNN
+F 2 "" H 2000 4200 60  0000 C CNN
+F 3 "" H 2000 4200 60  0000 C CNN
+	1    2000 4200
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U113
+U 1 1 534D16F0
+P 2000 4300
+F 0 "U113" H 1900 4350 60  0000 C CNN
+F 1 "~" H 2300 4250 60  0000 C CNN
+F 2 "" H 2000 4300 60  0000 C CNN
+F 3 "" H 2000 4300 60  0000 C CNN
+	1    2000 4300
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U114
+U 1 1 534D16F6
+P 2000 4400
+F 0 "U114" H 1900 4450 60  0000 C CNN
+F 1 "~" H 2300 4350 60  0000 C CNN
+F 2 "" H 2000 4400 60  0000 C CNN
+F 3 "" H 2000 4400 60  0000 C CNN
+	1    2000 4400
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U115
+U 1 1 534D16FC
+P 2000 4500
+F 0 "U115" H 1900 4550 60  0000 C CNN
+F 1 "~" H 2300 4450 60  0000 C CNN
+F 2 "" H 2000 4500 60  0000 C CNN
+F 3 "" H 2000 4500 60  0000 C CNN
+	1    2000 4500
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U116
+U 1 1 534D1702
+P 2000 4600
+F 0 "U116" H 1900 4650 60  0000 C CNN
+F 1 "~" H 2300 4550 60  0000 C CNN
+F 2 "" H 2000 4600 60  0000 C CNN
+F 3 "" H 2000 4600 60  0000 C CNN
+	1    2000 4600
+	1    0    0    -1  
+$EndComp
+Text GLabel 2200 2900 2    50   3State ~ 0
+RA8
+Text GLabel 2200 3100 2    50   3State ~ 0
+RA10
+Text GLabel 2200 3300 2    50   3State ~ 0
+RA12
+Text GLabel 2200 3500 2    50   3State ~ 0
+RA14
+Text GLabel 2200 3000 2    50   3State ~ 0
+RA9
+Text GLabel 2200 3200 2    50   3State ~ 0
+RA11
+Text GLabel 2200 3400 2    50   3State ~ 0
+RA13
+Text GLabel 2200 3600 2    50   3State ~ 0
+RA15
+Text GLabel 2200 3900 2    50   3State ~ 0
+RA0
+Text GLabel 2200 4100 2    50   3State ~ 0
+RA2
+Text GLabel 2200 4300 2    50   3State ~ 0
+RA4
+Text GLabel 2200 4500 2    50   3State ~ 0
+RA6
+Text GLabel 2200 4000 2    50   3State ~ 0
+RA1
+Text GLabel 2200 4200 2    50   3State ~ 0
+RA3
+Text GLabel 2200 4400 2    50   3State ~ 0
+RA5
+Text GLabel 2200 4600 2    50   3State ~ 0
+RA7
+Wire Wire Line
+	11600 3250 11650 3250
+Wire Wire Line
+	12400 3150 12450 3150
+Wire Wire Line
+	12400 3250 12450 3250
+Wire Wire Line
+	12400 3350 12450 3350
+Wire Wire Line
+	12400 3450 12450 3450
+Wire Wire Line
+	11600 4100 11650 4100
+Wire Wire Line
+	11600 4200 11650 4200
+Wire Wire Line
+	11600 4300 11650 4300
 $EndSCHEMATC

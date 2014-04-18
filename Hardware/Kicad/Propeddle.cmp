@@ -1,4 +1,4 @@
-Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/2/2014 9:34:47 PM
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/13/2014 10:36:37 PM
 
 BeginCmp
 TimeStamp = /53383CD0;
@@ -38,49 +38,49 @@ EndCmp
 BeginCmp
 TimeStamp = /53387CA7/533850B5;
 Reference = C201;
-ValeurCmp = 100nF;
+ValeurCmp = 100n;
 IdModule  = C1;
 EndCmp
 
 BeginCmp
 TimeStamp = /53387CA7/533850D0;
 Reference = C202;
-ValeurCmp = 100nF;
+ValeurCmp = 100n;
 IdModule  = C1;
 EndCmp
 
 BeginCmp
 TimeStamp = /53387CA7/533850D6;
 Reference = C203;
-ValeurCmp = 100nF;
+ValeurCmp = 100n;
 IdModule  = C1;
 EndCmp
 
 BeginCmp
 TimeStamp = /5339C0F7/533B3182;
 Reference = C301;
-ValeurCmp = 10uF;
+ValeurCmp = 10u;
 IdModule  = C1V7;
 EndCmp
 
 BeginCmp
 TimeStamp = /5339C0F7/533B3188;
 Reference = C302;
-ValeurCmp = 22uF;
+ValeurCmp = 22u;
 IdModule  = C1V7;
 EndCmp
 
 BeginCmp
 TimeStamp = /5339C0F7/533B318E;
 Reference = C303;
-ValeurCmp = 10uF;
+ValeurCmp = 10u;
 IdModule  = C1V7;
 EndCmp
 
 BeginCmp
 TimeStamp = /5339D827/5339E0A6;
 Reference = C401;
-ValeurCmp = 100nF;
+ValeurCmp = 100n;
 IdModule  = C1;
 EndCmp
 
@@ -150,7 +150,7 @@ EndCmp
 BeginCmp
 TimeStamp = /5339D827/5339E0CA;
 Reference = IC401;
-ValeurCmp = WDC65C02S14;
+ValeurCmp = 65[C]02;
 IdModule  = DIP-40__600;
 EndCmp
 
@@ -159,13 +159,6 @@ TimeStamp = /5307CF1E;
 Reference = JP103;
 ValeurCmp = NMOS;
 IdModule  = PIN_ARRAY_2X1;
-EndCmp
-
-BeginCmp
-TimeStamp = /5339D827/53483773;
-Reference = K401;
-ValeurCmp = CLK2 DEBUG SYNC;
-IdModule  = PIN_ARRAY_3X1;
 EndCmp
 
 BeginCmp
@@ -185,7 +178,7 @@ EndCmp
 BeginCmp
 TimeStamp = /534AEA58;
 Reference = P103;
-ValeurCmp = CONN_20X2;
+ValeurCmp = EXPANSION PORT;
 IdModule  = PIN_ARRAY_20X2;
 EndCmp
 
@@ -197,9 +190,16 @@ IdModule  = 00JG-BARREL_JACK_RAPC722X;
 EndCmp
 
 BeginCmp
-TimeStamp = /5339C0F7/5345FAE2;
+TimeStamp = /5339C0F7/5347D614;
 Reference = P302;
-ValeurCmp = 3.3 PWR 5.5;
+ValeurCmp = 3.3V PWR 5V;
+IdModule  = 00JG-SHORT3_015;
+EndCmp
+
+BeginCmp
+TimeStamp = /5339D827/53483773;
+Reference = P401;
+ValeurCmp = SYNC DEBUG CLK2;
 IdModule  = PIN_ARRAY_3X1;
 EndCmp
 
@@ -225,17 +225,17 @@ IdModule  = 00JG-DB15HDSOCKET;
 EndCmp
 
 BeginCmp
-TimeStamp = /5346A526;
+TimeStamp = /534C5EB3;
 Reference = R101;
-ValeurCmp = 8x 2K7;
-IdModule  = DIP-16__300;
+ValeurCmp = 8x 2K7 (5V only);
+IdModule  = 00JG-RPACK16;
 EndCmp
 
 BeginCmp
-TimeStamp = /53469E35;
+TimeStamp = /534C5FC2;
 Reference = R102;
-ValeurCmp = 8x 2K7;
-IdModule  = DIP-16__300;
+ValeurCmp = 8x 2K7 (5V only);
+IdModule  = 00JG-RPACK16;
 EndCmp
 
 BeginCmp
@@ -249,7 +249,7 @@ BeginCmp
 TimeStamp = /5339D827/53478D3C;
 Reference = R401;
 ValeurCmp = 8x 2K7;
-IdModule  = DIP-16__300;
+IdModule  = 00JG-RPACK16;
 EndCmp
 
 BeginCmp
@@ -369,6 +369,132 @@ TimeStamp = /534A34FA;
 Reference = SW101;
 ValeurCmp = RESET;
 IdModule  = 00JG-PUSHBUTTON_90_1825027;
+EndCmp
+
+BeginCmp
+TimeStamp = /534CF2DE;
+Reference = U101;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D13A8;
+Reference = U102;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D13AE;
+Reference = U103;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D13B4;
+Reference = U104;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D15BE;
+Reference = U105;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D15C4;
+Reference = U106;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D15CA;
+Reference = U107;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D15D0;
+Reference = U108;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16D8;
+Reference = U109;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16DE;
+Reference = U110;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16E4;
+Reference = U111;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16EA;
+Reference = U112;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16F0;
+Reference = U113;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16F6;
+Reference = U114;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D16FC;
+Reference = U115;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /534D1702;
+Reference = U116;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /5339D827/534C5202;
+Reference = U401;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
+EndCmp
+
+BeginCmp
+TimeStamp = /5339D827/534C520F;
+Reference = U402;
+ValeurCmp = ~;
+IdModule  = 00JG-SHORT;
 EndCmp
 
 BeginCmp

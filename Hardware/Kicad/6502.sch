@@ -13,7 +13,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 4 7
 Title "Propeddle"
-Date "8 apr 2014"
+Date "18 apr 2014"
 Rev "10"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
@@ -155,10 +155,10 @@ RR/~W
 Text HLabel 6300 2500 1    50   Output ~ 0
 RDEBUG
 $Comp
-L CONN_3 K401
+L CONN_3 P401
 U 1 1 53483773
 P 6300 6250
-F 0 "K401" V 6250 6250 50  0000 C CNN
+F 0 "P401" V 6250 6250 50  0000 C CNN
 F 1 "SYNC DEBUG CLK2" V 6350 6250 40  0000 C CNN
 F 2 "~" H 6300 6250 60  0000 C CNN
 F 3 "~" H 6300 6250 60  0000 C CNN
@@ -252,4 +252,38 @@ Connection ~ 6200 3900
 Wire Wire Line
 	6400 5900 6400 5400
 Connection ~ 6400 5400
+$Comp
+L 00JG-SHORT U401
+U 1 1 534C5202
+P 8150 2900
+F 0 "U401" H 8000 2950 60  0000 C CNN
+F 1 "~" H 8150 2700 60  0000 C CNN
+F 2 "" H 8150 2900 60  0000 C CNN
+F 3 "" H 8150 2900 60  0000 C CNN
+	1    8150 2900
+	1    0    0    -1  
+$EndComp
+$Comp
+L 00JG-SHORT U402
+U 1 1 534C520F
+P 8150 3000
+F 0 "U402" H 8000 3050 60  0000 C CNN
+F 1 "~" H 8150 2800 60  0000 C CNN
+F 2 "" H 8150 3000 60  0000 C CNN
+F 3 "" H 8150 3000 60  0000 C CNN
+	1    8150 3000
+	1    0    0    -1  
+$EndComp
+Text HLabel 8350 2900 2    50   Output ~ 0
+RR/~W
+Text HLabel 8350 3000 2    50   Output ~ 0
+RDEBUG
+Text HLabel 7950 2900 0    50   Output ~ 0
+R/~W
+Text Notes 7650 3250 0    50   ~ 0
+Cut shorts for operation on 5V
+Text Label 6300 5700 1    50   ~ 0
+DEBUG
+Text Label 7950 3000 2    50   ~ 0
+DEBUG
 $EndSCHEMATC

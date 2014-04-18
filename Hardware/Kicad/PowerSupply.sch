@@ -13,7 +13,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 3 7
 Title "Propeddle"
-Date "8 apr 2014"
+Date "18 apr 2014"
 Rev "10"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
@@ -154,17 +154,6 @@ Wire Wire Line
 Text GLabel 6850 3550 2    50   Output ~ 0
 +3.3V
 $Comp
-L CONN_3 P302
-U 1 1 5345FAE2
-P 7600 4150
-F 0 "P302" V 7550 4150 50  0000 C CNN
-F 1 "3.3V PWR 5V" V 7650 4150 40  0000 C CNN
-F 2 "~" H 7600 4150 60  0000 C CNN
-F 3 "~" H 7600 4150 60  0000 C CNN
-	1    7600 4150
-	0    -1   1    0   
-$EndComp
-$Comp
 L +5V #PWR021
 U 1 1 53460456
 P 7700 3600
@@ -221,4 +210,15 @@ Wire Wire Line
 Connection ~ 7600 3400
 Wire Wire Line
 	7450 3350 7450 3400
+$Comp
+L 00JG-JUMPER-SHORTED P302
+U 1 1 5347D614
+P 7600 4150
+F 0 "P302" V 7550 4050 50  0000 C CNN
+F 1 "3.3V PWR 5V" V 7650 4150 40  0000 C CNN
+F 2 "~" H 7600 4150 60  0000 C CNN
+F 3 "~" H 7600 4150 60  0000 C CNN
+	1    7600 4150
+	0    -1   1    0   
+$EndComp
 $EndSCHEMATC
