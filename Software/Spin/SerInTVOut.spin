@@ -46,11 +46,12 @@ PUB tx(c)
   ser.tx(c)
   tv.out(c)
 
-PUB rx
+PUB rx | rxbyte
 
   repeat
-    if ser.rxcheck<>-1
-      return ser.rx
+    rxbyte := ser.rxcheck
+    if rxbyte <> -1
+      return rxbyte
     if kb.gotkey<>0
       return kb.getkey
 
