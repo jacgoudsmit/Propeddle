@@ -1,4 +1,4 @@
-Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/18/2014 10:36:39 AM
+Cmp-Mod V01 Created by CvPcb (2013-07-07 BZR 4022)-stable date = 4/22/2014 10:33:43 PM
 
 BeginCmp
 TimeStamp = /53383CD0;
@@ -122,7 +122,7 @@ EndCmp
 BeginCmp
 TimeStamp = /5338458A;
 Reference = IC104;
-ValeurCmp = 74HC06N;
+ValeurCmp = 74HC05N;
 IdModule  = DIP-14__300;
 EndCmp
 
@@ -242,14 +242,14 @@ BeginCmp
 TimeStamp = /534C5EB3;
 Reference = R101;
 ValeurCmp = 8x 2K7 (5V only);
-IdModule  = 00JG-RPACK16;
+IdModule  = 00JG-RPACK16_BLANK;
 EndCmp
 
 BeginCmp
 TimeStamp = /534C5FC2;
 Reference = R102;
 ValeurCmp = 8x 2K7 (5V only);
-IdModule  = 00JG-RPACK16;
+IdModule  = 00JG-RPACK16_BLANK;
 EndCmp
 
 BeginCmp

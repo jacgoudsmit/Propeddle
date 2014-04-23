@@ -1,7 +1,7 @@
 (export (version D)
   (design
     (source C:\Users\Jac\Documents\Propeller\Propeddle\Hardware\Kicad\Propeddle.sch)
-    (date "4/18/2014 10:35:55 AM")
+    (date "4/22/2014 10:32:59 PM")
     (tool "eeschema (2013-07-07 BZR 4022)-stable"))
   (components
     (comp (ref C103)
@@ -59,7 +59,7 @@
       (sheetpath (names /) (tstamps /))
       (tstamp 53383CD0))
     (comp (ref IC104)
-      (value 74HC06N)
+      (value 74HC05N)
       (libsource (lib Propeddle-cache) (part 74HC06N))
       (sheetpath (names /) (tstamps /))
       (tstamp 5338458A))
@@ -577,6 +577,15 @@
       (pins
         (pin (num 1) (name ~) (type passive))
         (pin (num 2) (name ~) (type passive))))
+    (libpart (lib jac) (part LED)
+      (fields
+        (field (name Reference) D)
+        (field (name Value) LED)
+        (field (name Footprint) ~)
+        (field (name Datasheet) ~))
+      (pins
+        (pin (num A) (name ~) (type passive))
+        (pin (num K) (name ~) (type passive))))
     (libpart (lib jac) (part LM1086)
       (fields
         (field (name Reference) IC)
@@ -856,14 +865,7 @@
         (field (name Datasheet) ~))
       (pins
         (pin (num 1) (name 1) (type passive))
-        (pin (num 2) (name 2) (type passive))))
-    (libpart (lib jac) (part LED)
-      (fields
-        (field (name Reference) D)
-        (field (name Value) LED))
-      (pins
-        (pin (num A) (name ~) (type passive))
-        (pin (num K) (name ~) (type passive)))))
+        (pin (num 2) (name 2) (type passive)))))
   (libraries
     (library (logical jac)
       (uri jac.lib))

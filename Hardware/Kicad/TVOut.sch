@@ -13,7 +13,7 @@ $Descr A4 11693 8268
 encoding utf-8
 Sheet 6 7
 Title "Propeddle"
-Date "18 apr 2014"
+Date "23 apr 2014"
 Rev "11"
 Comp "(C) 2014 Jac Goudsmit"
 Comment1 "Software-Defined 6502 Computer"
