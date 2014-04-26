@@ -1,6 +1,6 @@
 ''***************************************************************************
 ''* Propeddle RAM chip control
-''* Copyright (C) 2011-2013 Jac Goudsmit
+''* Copyright (C) 2011-2014 Jac Goudsmit
 ''*
 ''* TERMS OF USE: MIT License                                                            
 ''*

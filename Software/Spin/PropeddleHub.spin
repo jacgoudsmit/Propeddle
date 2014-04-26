@@ -1,6 +1,6 @@
 ''***************************************************************************
 ''* Propeddle Hub Data module
-''* Copyright (C) 2011-2013 Jac Goudsmit (Thanks to Vince Briel)
+''* Copyright (C) 2011-2014 Jac Goudsmit (Thanks to Vince Briel)
 ''*
 ''* TERMS OF USE: MIT License                                                            
 ''*
