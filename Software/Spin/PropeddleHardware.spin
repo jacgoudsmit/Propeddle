@@ -286,7 +286,7 @@
   me, inspired me and/or encouraged me to make this:
   - Dennis Ferron (Prop-6502 project)
     http://www.parallax.com/tabid/708/Default.aspx
-  - Vince Briel (MicroKim and PockeTerm)
+  - Vince Briel (MicroKim, PockeTerm, Superboard III and many others)
     http://www.brielcomputers.com  
   - Chris Savage and everyone else at Parallax and SavageCircuits.com and
     the #savagecircuits IRC channel. 
@@ -295,11 +295,12 @@
   - Jeff Ledger (OldBitCollector) at propellerpowered.com (and savagecircuits
     and GadgetGangster).
     http://www.propellerpowered.com
-  - James Neal (@laen) at Dorkbot PDX PCB for getting the circuit boards made.
-    http://dorkbotpdx.org/wiki/pcb_order
-  - Gadget Gangster for the Propeller Platform boards and the (future)
-    cooperation selling Propeddle kits to the masses
+  - James Neal (@laen) at OSHPark for getting the circuit boards made.
+    http://www.oshpark.com
+  - Gadget Gangster for the Propeller Platform boards
     http://www.gadgetgangster.com
+  - Emile Petrone at Tindie
+    http://www.tindie.com
   - Brian Riley at The Shoppe at Wulfden and Steve Denson ("jazzed"), for the
     Propalyzer PPLA Digital Logic Analyzer.  
     http://www.wulfden.org/TheShoppe/prop/ppla/index.shtml
@@ -344,18 +345,18 @@ CON
   pin_A15    = 15
 
   ' Latch outputs, when AEN=1 (off) and SLC transitions L->H
-  pin_SEL0   = 8  ' (for future expansion)
-  pin_SEL1   = 9  ' (for future expansion)
-  pin_RAMA16 = 10 ' Extra address line for 128K RAM chip
-  pin_NMI    = 11 ' Negative edge during CLK0=0 triggers non-maskable interrupt on 6502
-  pin_IRQ    = 12 ' 0=interrupt request on 6502
-  pin_RDY    = 13 ' 0=hold the 6502 (read cycle only) for slow devices
-  pin_RES    = 14 ' 0=reset the 6502, Reset sequence starts 6 cycles after positive edge 
-  pin_SO     = 15 ' 0=set the V flag in the 6502 status register
+  pin_CRES   = 8  ' 1=reset the 6502, Reset sequence starts 6 cycles after negative edge
+  pin_CNRDY  = 9  ' 1=hold the 6502 (read cycle only) for slow devices
+  pin_CSO    = 10 ' 1=set the V flag in the 6502 status register
+  pin_CIRQ   = 11 ' 1=interrupt request on 6502
+  pin_CNBE   = 12 ' 1=disconnect the CPU from the bus (WDC only!)
+  pin_CNMI   = 13 ' Positive edge during CLK0=0 triggers non-maskable interrupt on 6502
+  pin_CSETUP = 14 ' I/O setup pin on expansion bus   
+  pin_CRAMA16= 15 ' Extra address line for 128K RAM chip
   
   ' Direct Outputs
-  pin_LED    = 19 ' (Optional, otherwise used for audio, video or SYNC)
-  pin_RAMOE  = 20 ' 0=RAM reads to databus
+  pin_LED    = 20 ' May also be used for VGA or as debug input, depending on jumpers
+  pin_RAMOE  = 21 ' 0=RAM reads to databus
   pin_RAMWE  = 22 ' 0=RAM written from databus
   pin_AEN    = 24 ' 0=Enables address bus on P0-P15, during CLK0=0 only
   pin_SLC    = 25 ' Signal Latch Clock (during CLK0=0 only); P8-P15 loaded on low-to-high transition
@@ -364,8 +365,7 @@ CON
   pin_SDA    = 29 ' SDA output to EEPROM, held HIGH to prevent interference
   
   ' Direct Inputs
-  pin_SYNC   = 19 ' 1=6502 reads an opcode (Optional, otherwise used for audio, video or debugging LED)
-  pin_CLK2   = 21 ' CLK2 from the 6502 (Optional, otherwise used for VGA video)
+  pin_DEBUG  = pin_LED ' SYNC or CLK2 can be jumpered here; also used for LED or VGA
   pin_RW     = 23 ' 1=6502 reads from databus, 0=6502 writes to databus   
 
   ' Pseudo-pin that can be used to "interrupt" the control cog when it's
@@ -378,17 +378,15 @@ CON
 '  pin_PINT   = pin_CLK0
   
   ' Pins reserved for other devices:
-  ' VGA: 16, 17, 18, 19*, 21* (VSync, HSync, Blue LSB, Blue MSB*, Green MSB* only), depending on wiring 
-  ' TV: 16, 17, 18
-  ' Audio or LED: 19 depending on wiring
+  ' VGA: 16, 17, 18, 19, 20 (VSync, HSync, Blue, Green, Red; 3 bit colors only), depending on jumpers 
+  ' TV: 16, 17, 18, 19 
   ' PS/2 keyboard: 26, 27
   ' EEPROM: 28, 29
   ' Serial port: 30, 31
   '
-  ' Note that no pins between 24 and 31 are used by the Propeddle hardware;
-  ' this fact is used by the trace cog to format its data (the data bus is
-  ' shifted into the high 8 bits where there is normally no relevant
-  ' information from the 65C02.
+  ' Note that no pins between 24 and 31 are used by the 6502 circuitry.
+  ' Thanks to this, the trace cog can discard these bits and replace them
+  ' with the values of the data bus.
   
 
   '==========================================================================
@@ -405,9 +403,9 @@ CON
   con_mask_ADDRH   = (|< pin_A8)     | (|< pin_A9)     | (|< pin_A10)    | (|< pin_A11)    | (|< pin_A12)    | (|< pin_A13)    | (|< pin_A14)    | (|< pin_A15)
   con_mask_ADDR    = con_mask_ADDRL  | con_mask_ADDRH
   con_mask_OUTPUTS = con_mask_LED    | (|< pin_RAMOE)  | (|< pin_RAMWE)  | (|< pin_AEN)    | (|< pin_SLC)    | (|< pin_CLK0)   | (|< pin_SDA)
-  con_mask_SIGNALS = (|< pin_SEL0)   | (|< pin_SEL1)   | (|< pin_RAMA16) | (|< pin_NMI)    | (|< pin_IRQ)    | (|< pin_RDY)    | (|< pin_RES)    | (|< pin_SO)
-  con_mask_HALT    = con_mask_SIGNALS & !(|<pin_RDY)
-  con_mask_RESET   = con_mask_SIGNALS & !(|<pin_RES)
+  con_mask_SIGNALS = (|< pin_CRES)   | (|< pin_CNRDY)  | (|< pin_CSO)    | (|< pin_CIRQ)   | (|< pin_CNBE)   | (|< pin_CNMI)   | (|< pin_CSETUP) | (|< pin_CRAMA16)
+  con_mask_HALT    = (|< pin_CNRDY)
+  con_mask_RESET   = (|< pin_CRES)
   con_mask_RAM     = (|< pin_RAMOE)  | (|< pin_RAMWE)
   con_mask_I2C     = (|< pin_SDA)    | (|< pin_SCL)
 

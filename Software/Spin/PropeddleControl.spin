@@ -569,7 +569,7 @@ CmdShutDown
 CmdDisconnectI2C
                         ' Activate the RDY line temporarily to prevent the
                         ' 65C02 from interpreting I2C pulses as clocks
-                        andn    g_signals, mask_RDY
+                        or      g_signals, mask_CNRDY
                         call    #SendSignals
 
                         ' Disable the outputs until the next command
@@ -679,7 +679,7 @@ CmdDownload
                         muxz    :addrmatch, mux_Z_TO_ALWAYS ' Change back to if_z
 
                         ' Generate NMI (which is edge triggered)
-                        andn    g_signals, mask_NMI
+                        or      g_signals, mask_CNMI
                         call    #SendSignals
 
                         ' Change state when NMI vector appears
@@ -750,7 +750,7 @@ CmdDownload
 :endwrite
                         ' Deactivate NMI
                         or      DIRA, mask_SIGNALS
-                        or      g_signals, mask_NMI
+                        andn    g_signals, mask_CNMI
                         call    #SendSignals
 
                         ' From now on, disregard match to expected address
@@ -1112,14 +1112,14 @@ mask_RAMWE              long    (|< hw#pin_RAMWE)
 mask_AEN                long    (|< hw#pin_AEN)
 mask_RW                 long    (|< hw#pin_RW)
 mask_CLK0               long    (|< hw#pin_CLK0)
-mask_RDY                long    (|< hw#pin_RDY)
+mask_CNRDY              long    (|< hw#pin_CNRDY)
 mask_I2C                long    hw#con_mask_I2C
 
                         ' Constants for download
 vector_NMI              long    $FFFA
 mask_ADDR               long    hw#con_mask_ADDR
 mask_DATA               long    hw#con_mask_DATA
-mask_NMI                long    (|< hw#pin_NMI)        
+mask_CNMI               long    (|< hw#pin_CNMI)        
 
                         ' Others
 d1                      long    (|< 9)                  ' 1 as destination                                                                                
