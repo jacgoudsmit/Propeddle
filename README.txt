@@ -18,7 +18,7 @@ PROPEDDLE MIT LICENSE:
 
 ********************************************************************************
 
-Propeddle, Copyright (C) 2011-2012 by The Propeddle Project (Jac Goudsmit)
+Propeddle, Copyright (C) 2011-2014 by The Propeddle Project (Jac Goudsmit)
 Based on the PROP-6502 project, Copyright (C) 2008 by Dennis Ferron.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of the software, schematics and PCB design and the associated documentation files (the "Project"), to deal in the Project without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Project, and to permit persons to whom the Project is furnished to do so, subject to the following conditions:
