@@ -66,8 +66,8 @@ PUB testmain | i
 
   text.str(string("Hello", 13))
   
-  repeat
-    MainProgram
+  'repeat
+  '  MainProgram
       
   ctrl.Start
 
@@ -100,7 +100,7 @@ PUB testmain | i
   text.str(string("Reset Off",13))
 
   trace.Start(@tracedump, con_tracelen)
-  ctrl.Run(88, 40)
+  ctrl.Run(80, 40)
   repeat
     i := ctrl.RunWait(clkfreq + cnt)
     'text.dec(i)

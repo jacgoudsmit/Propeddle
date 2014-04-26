@@ -48,7 +48,13 @@ CON
   con_result_RUN_TERMINATED                             ' Done after predetermined number of cycles
   con_result_RUN_ABORT_SPIN                             ' Aborted by Spin
   con_result_RUN_ABORT_PINT                             ' Aborted by another cog holding CLK0 high
-                                                                          
+
+
+  '==========================================================================
+  ' Others
+  con_mask_SIGNALSNOT0 = (|< hw#pin_SDA)                ' Harmless mask to prevent signals from being set to 0
+
+                                   '                                                         
 OBJ
 '' References
 
@@ -197,11 +203,12 @@ PUB SetSignal(pin, high)
 PUB SetSignals(value)
 '' Set all signals
 
-  g_signals := value
+  ' The value must be set to nonzero so the main loop doesn't abort
+  g_signals := (value & hw#con_mask_SIGNALS) | con_mask_SIGNALSNOT0
 
   ' If the control cog is running, it will pick up the signals
   ' automatically on each clock cycle; if it's stopped, we have to force
-  ' it here.
+  ' the update here.
   if (g_state == con_state_STOPPED)
     WaitSendCommand(@CmdSignals)
     
@@ -215,7 +222,7 @@ PUB GetSignal(pin)
 PUB GetSignals
 '' Gets all current signals
 
-  return g_signals
+  return g_signals & hw#con_mask_SIGNALS
 
   
 PUB DisconnectI2C
@@ -402,7 +409,7 @@ ControlCog              jmp     #Init
 g_state                 long    con_state_UNINITIALIZED ' Current state, don't use in loops!
 g_cmd                   long    -1                      ' Current command, protected by busy-lock
 g_retval                long    0                       ' Result from previous command
-g_signals               long    hw#con_MASK_SIGNALS     ' Signals for command
+g_signals               long    con_mask_SIGNALSNOT0    ' Signals for command
 g_addr                  long    0                       ' Address bus for command
 g_data                  long    0                       ' Data bus for command
 g_hubaddr               long    0                       ' Hub address for command
@@ -795,9 +802,9 @@ CmdDownload
 ' modified.
 '
 ' The timing values in comments are:
-' tn=The number of Propeller cycles from waitcnt instruction. By the time the cog reaches the waitcnt
-'    again, tn must be less than the minimum cycle time plus the minimum time
-'    for the waitcnt.
+' tn=The number of Propeller cycles from waitcnt instruction. By the time the
+'    cog reaches the waitcnt again, tn must be less than the minimum cycle
+'    time plus the minimum time for the waitcnt.
 ' tx=The number of Propeller cycles relative to the Hub access time window.
 '    This cog gets access to the hub every 16 cycles, and when a hub
 '    instruction executes, it waits for access for up to 15 cycles. After
@@ -838,6 +845,10 @@ CmdRun
 
                         ' Load initial signals
                         ' If they are zero, bail out right away.
+                        ' The Spin code will make sure that whenever the
+                        ' signals are set (other than to abort this loop)
+                        ' the value is nonzero but any bits that are set
+                        ' won't influence the operation.
                         rdlong  g_signals, parm_pSignals wz
         if_z            jmp     #EndMainLoop
 'tx=12
