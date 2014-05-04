@@ -136,7 +136,10 @@ Loop
                         ' address bus, so the address bus buffers are
                         ' stable. Meanwhile, store the instruction counter
                         ' so we can synchronize with the end of Phi2
-                        ' later on. 
+                        ' later on.
+                        ' NOTE: the "clock" variable will contain the time
+                        ' at tp=13 because CNT is retrieved during the second
+                        ' cycle of the instruction, not the first cycle. 
                         mov     clock, CNT
                         mov     newaddr, INA
 'tp=20
@@ -178,13 +181,14 @@ Loop
                         ' started.
                         ' We want to make sure that the mov-from-INA
                         ' instruction is slightly ahead of the control cog's
-                        ' mov-to-OUTA instruction so we time the mov-from-INA
-                        ' to be done by tp=78. So it has to start at tp=74.
-                        ' We recorded CNT at tp=12 so we need to add 62.
+                        ' mov-to-OUTA instruction that resets CLK0, so we
+                        ' time the mov-from-INA for the databus value to be
+                        ' done by tp=78. So it has to start at tp=74.
+                        ' We recorded CNT at tp=13 so we need to add 61.
                         ' These two instructions take at least 4+6 cycles,
                         ' which gives us one cycle to spare in the worst case
-                        ' before we hit tp=74 which is where we want to be. 
-                        add     clock,#62 ' <-- wait until 12+62 cycles after start of Phi1 
+                        ' before we hit tp=74 which is where we want to be.
+                        add     clock,#61 ' <-- wait until 13+61 cycles after start of Phi1 
                         waitcnt clock, #0 ' <-- min wait time would result in tp=73
 'tp=74                         
                         mov     data, INA
