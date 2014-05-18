@@ -25,12 +25,13 @@ PUB dec(v)
   ser.dec(v)
   tv.dec(v)
 
-PUB rxtime(ms) | t
+PUB rxtime(ms) | t, rxbyte
 
   t := cnt
   repeat until (cnt - t) / (clkfreq / 1000) > ms
-    'if ser.rxcheck<>-1
-    '  return ser.rx
+    rxbyte := ser.rxcheck
+    if rxbyte <> -1
+      return rxbyte
     if kb.gotkey<>0
       return kb.getkey
     
@@ -52,7 +53,7 @@ PUB rx | rxbyte
     rxbyte := ser.rxcheck
     if rxbyte <> -1
       return rxbyte
-    if kb.gotkey<>0
+    if kb.gotkey <> 0
       return kb.getkey
 
 PUB stop
@@ -77,9 +78,8 @@ PUB rxcheck | c
   if c <> -1
     return c
 
-  c := kb.key
-  if (c <> 0)
-    return c
+  if kb.gotkey <> 0
+    return kb.getkey
 
   return -1
 
