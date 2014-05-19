@@ -28,17 +28,18 @@
 
 CON
   _clkmode = XTAL1 + PLL16X
-  _xinfreq = 5_000_000
+  _xinfreq = 6_250_000
 
-  con_tracelen = 40
+  con_tracelen = 125
   
 OBJ
-  text:         "SerInTVOut"
+  text:         "FullDuplexSerial" {{"SerInTVOut"}}
   ctrl:         "PropeddleControl"
   hw:           "PropeddleHardware"
-  ram:          "PropeddleRAM"
+'  ram:          "PropeddleRAM"
   hub:          "PropeddleHub"
   trace:        "PropeddleTrace"
+  term:         "PropeddleTerm"
   
 DAT
   tracedump long 0[con_tracelen]
@@ -49,27 +50,40 @@ DAT
   ' 
   '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
   romimage    'byte  $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
-              byte  $EE, $F9, $80, $EE, $F9, $FF, $4C, $F0, $FF, $00, $F0, $FF, $F0, $FF, $F0, $FF
-  romend      byte
+
+              ' On-screen counter
+'              byte  $EE, $F9, $80, $EE, $F9, $FF, $4C, $F0, $FF, $00, $F0, $FF, $F0, $FF, $F0, $FF
+
+              ' Terminal test 1: Writes all printable characters to terminal repetitively 
+  '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+              byte   $A9, $20, $AA, $C9, $7F, $F0, $F9, $20, $EF, $FF, $E8, $8A, $4C, $E2, $FF, $2C
+              byte   $12, $D0, $30, $FB, $8D, $12, $D0, $60, $00, $00, $00, $00, $E0, $FF, $00, $00
+
+  romend
 
   romstart    long $1_0000 - (@romend - @romimage)
       
-  signals     long hw#con_MASK_SIGNALS
+  signals     long 0
 
   clkcount    long 0
        
 PUB testmain | i
 
-  text.Start
+  text.Start(31,30,0,115200)
+  'text.Start
   
   waitcnt(clkfreq + cnt)
 
   text.str(string("Hello", 13))
   
-  'repeat
-  '  MainProgram
+  repeat
+    DemoDump
+
+
+PUB DemoDump | i
       
   ctrl.Start
+  term.Start($D010)
 
   ' Hub access cog must be started after control cog
   text.str(string("Starting hub cog: "))
@@ -94,30 +108,46 @@ PUB testmain | i
     ctrl.Run(40_000_000, 1)
     ctrl.RunWait(clkfreq + cnt)
 
-    dumptrace(tracedump[0])
+    dumptrace0
 
   ctrl.SetSignal(hw#pin_CRES, FALSE)
   text.str(string("Reset Off",13))
 
   trace.Start(@tracedump, con_tracelen)
-  ctrl.Run(80, 40)
+  ctrl.Run(100, 0) 'con_tracelen)
+  
   repeat
-    i := ctrl.RunWait(clkfreq + cnt)
-    'text.dec(i)
-    'text.tx(13)
-    if i <> ctrl#con_RESULT_RUN_RUNNING
+    PumpTerminal
+    if text.rxcheck <> -1
+      text.str(string("Ending",13))
+      ctrl.runend
       quit
 
-  repeat i from 0 to con_tracelen - 1
-    if not dumptrace(tracedump[i])
-      quit
+'    i := ctrl.RunWait(clkfreq + cnt)
+'    'text.dec(i)
+'    'text.tx(13)
+'    if i <> ctrl#con_RESULT_RUN_RUNNING
+'      quit
 
+  dumptrace
+  
   repeat
     waitcnt(clkfreq + cnt)
     ctrl.LedToggle
 
-PUB dumptrace(t)
 
+PUB PumpTerminal | i
+
+    i := term.RecvChar
+    if (i & $80) <> 0
+      'text.hex(i, 2)
+      'text.tx($20)
+      text.tx(i & $7F)
+
+
+PUB dumptrace1(i) | t
+
+  t := tracedump[i]
   result := t <> 0
   if result
     if (t & $80000000) <> 0
@@ -132,13 +162,28 @@ PUB dumptrace(t)
   else
     text.str(string("- ---- --", 13))  
 
-PUB mainProgram | c, i
+PUB dumptrace0
+
+  dumptrace1(0)
+  
+PUB dumptrace | i
+
+  repeat i from 0 to con_tracelen - 1
+    if tracedump[i]
+      text.hex(i, 4)
+      text.str(string(": "))
+      dumptrace1(i)
+    else
+      quit
+
+  
+PUB DemoInteractive | c, i
 
   waitcnt(clkfreq + cnt)
 
-  Zap(false)  
+  Zap(true)  
 
-  Demo
+  'Demo
    
   repeat       
     text.rxflush
@@ -157,7 +202,11 @@ PUB mainProgram | c, i
       "g","G": Go
       "r","R": ResetSequence(true)
       "p","P": Zap(not ctrl.IsStarted)
-      
+
+      ' @@@ delete me
+      "Q"    : ctrl.Stop
+      "q"    : hub.Stop
+            
       other:   Help
                         
 
@@ -186,7 +235,8 @@ PUB Zap(usecontrolcog) | i
     if (cogid <> i)
       cogstop(i)
 
-  text.start 'text.start(31,30,0,115200)
+  text.Start(31,30,0,115200)
+'  text.start
 
   if (usecontrolcog)
     ctrl.Start
@@ -322,7 +372,7 @@ PRI SetOutaBit(bit, onoff) | mask, value
   SetOuta(value)    
 
   
-PUB SetBit(newvalue) | pin  
+PRI SetBit(newvalue) | pin  
 
   text.str(string("Setting bit to "))
   text.bin(newvalue, 1)
@@ -338,7 +388,7 @@ PUB SetBit(newvalue) | pin
   PrintOuta
 
 
-PUB ToggleBit | pin
+PRI ToggleBit | pin
 
   text.str(string("Toggling bit", 13))
 
@@ -464,71 +514,78 @@ PUB Clock(verbose) | mask, addr, b
     text.dec(clkcount)
     text.tx(13)
   clkcount++
-  
-  ' Phi1
-  ' Start by setting the clock low. If we're injecting data, it needs to
-  ' remain on the data bus until after the clock goes low.
-  SetOutaBit(hw#pin_CLK0, 0)
-  
-  ' Now set the output to the default Phi1 outputs but leave the LED unchanged
-  SetOuta(hw#con_OUT_PHI1 | (outa & (|< hw#pin_LED)))
-  dira[0..7]~
-   
-  ' Read the address bus and R/!W
-  addr := ina & $FFFF
-  if (verbose)
-    text.str(string("Phi1: Got address $"))
-    text.hex(addr, 4)
-    if (addr => romstart)
-      text.str(string(" (ROM)"))
-    text.tx(13)
-    text.str(string("R/!W = "))
-    text.bin(ina >> hw#pin_RW, 1)
-    text.tx(13)
-     
-  ' Take address bus off the Prop
-  SetOutaBit(hw#pin_AEN, 1)
-   
-  'Phi2
-  'Toggle the clock and the RAM if needed
-  if (addr < romstart )
-    if (ina[hw#pin_RW])
-      mask := !(|< hw#pin_RAMOE)
-    else
-      mask := !(|< hw#pin_RAMWE)
-  else
-    if (ina[hw#pin_RW]) ' reading
-      b := byte[@romimage][addr - romstart]
-      if (verbose)
-        text.str(string(13,"Injecting "))
-        text.hex(b,8)
-        text.tx(13)
-      SetOuta(outa | b) 
-      dira[0..7]~~
-    mask := $FFFFFFFF
-            
-  SetOuta((outa | (|< hw#pin_CLK0)) & mask)
 
-  ' Read the data bus
-  if (verbose)
-    text.str(string("Data bus=$"))
-    text.hex(ina, 2)
-    text.tx(13)
+  if ctrl.IsStarted
+    trace.Start(@tracedump, 1)
+    ctrl.Run(clkfreq / 8, 1)
+    ctrl.RunWait(clkfreq / 4 + cnt)
+    dumptrace0
+  else  
+    ' Phi1
+    ' Start by setting the clock low. If we're injecting data, it needs to
+    ' remain on the data bus until after the clock goes low.
+    SetOutaBit(hw#pin_CLK0, 0)
      
-  if ((addr => romstart) and (ina[hw#pin_RW] == 0))
-    if (verbose)
-      text.str(string("Storing "))
-      text.hex(ina & $FF,2)
-      text.tx(13)
-    byte[@romimage][addr - romstart] := (ina & $FF)
-    if (verbose)
-      text.str(string("Setting LED to "))
-      text.bin(ina, 1)
-      text.tx(13)
-    if (addr == $FFF9)
-      SetOutaBit(hw#pin_LED, ina & $80)
-    text.pokechar(23,addr - romstart,$FE,ina & $FF)
+    ' Now set the output to the default Phi1 outputs but leave the LED unchanged
+    SetOuta(hw#con_OUT_PHI1 | (outa & (|< hw#pin_LED)))
+    dira[0..7]~
      
+    ' Read the address bus and R/!W
+    addr := ina & $FFFF
+    if (verbose)
+      text.str(string("Phi1: Got address $"))
+      text.hex(addr, 4)
+      if (addr => romstart)
+        text.str(string(" (ROM)"))
+      text.tx(13)
+      text.str(string("R/!W = "))
+      text.bin(ina >> hw#pin_RW, 1)
+      text.tx(13)
+       
+    ' Take address bus off the Prop
+    SetOutaBit(hw#pin_AEN, 1)
+     
+    'Phi2
+    'Toggle the clock and the RAM if needed
+    if (addr < romstart )
+      if (ina[hw#pin_RW])
+        mask := !(|< hw#pin_RAMOE)
+      else
+        mask := !(|< hw#pin_RAMWE)
+    else
+      if (ina[hw#pin_RW]) ' reading
+        b := romimage.byte[addr - romstart]
+        if (verbose)
+          text.str(string(13,"Injecting "))
+          text.hex(b,2)
+          text.tx(13)
+        SetOuta(outa | b) 
+        dira[0..7]~~
+      mask := $FFFFFFFF
+              
+    SetOuta((outa | (|< hw#pin_CLK0)) & mask)
+     
+    ' Read the data bus
+    if (verbose)
+      text.str(string("Data bus=$"))
+      text.hex(ina, 2)
+      text.tx(13)
+       
+    if ((addr => romstart) and (ina[hw#pin_RW] == 0))
+      if (verbose)
+        text.str(string("Storing "))
+        text.hex(ina & $FF,2)
+        text.tx(13)
+      romimage.byte[addr - romstart] := (ina & $FF)
+      if (verbose)
+        text.str(string("Setting LED to "))
+        text.bin(ina, 1)
+        text.tx(13)
+      if (addr == $FFF9)
+        SetOutaBit(hw#pin_LED, ina & $80)
+      text.tx(ina & $FF)
+      'text.pokechar(23,addr - romstart,$FE,ina & $FF)
+       
   
 PUB Go | i,timer
 
