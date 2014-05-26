@@ -56,10 +56,14 @@ DAT
 
               ' Terminal test 1: Writes all printable characters to terminal repetitively 
   '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
-              byte   $A9, $20, $AA, $C9, $7F, $F0, $F9, $20, $EF, $FF, $E8, $8A, $4C, $E2, $FF, $2C
-              byte   $12, $D0, $30, $FB, $8D, $12, $D0, $60, $00, $00, $00, $00, $E0, $FF, $00, $00
+'              byte   $A9, $20, $AA, $C9, $7F, $F0, $F9, $20, $EF, $FF, $E8, $8A, $4C, $E2, $FF, $2C
+'              byte   $12, $D0, $30, $FB, $8D, $12, $D0, $60, $00, $00, $00, $00, $E0, $FF, $00, $00
 
-  romend
+              ' Terminal test 2: Read keys from input, write them to output
+  '                  0    1    2    3    4    5    6    7    8    9    A    B    C    D    E    F
+              byte   $AD, $11, $D0, $10, $FB, $AD, $10, $D0, $2C, $12, $D0, $30, $FB, $8D, $12, $D0
+              byte   $4C, $E0, $FF, $00, $00, $00, $00, $00, $00, $00, $00, $00, $E0, $FF, $00, $00
+  romend      
 
   romstart    long $1_0000 - (@romend - @romimage)
       
@@ -116,12 +120,7 @@ PUB DemoDump | i
   trace.Start(@tracedump, con_tracelen)
   ctrl.Run(100, 0) 'con_tracelen)
   
-  repeat
-    PumpTerminal
-    if text.rxcheck <> -1
-      text.str(string("Ending",13))
-      ctrl.runend
-      quit
+  repeat until PumpTerminal
 
 '    i := ctrl.RunWait(clkfreq + cnt)
 '    'text.dec(i)
@@ -138,12 +137,18 @@ PUB DemoDump | i
 
 PUB PumpTerminal | i
 
-    i := term.RecvChar
-    if (i & $80) <> 0
-      'text.hex(i, 2)
-      'text.tx($20)
-      text.tx(i & $7F)
-
+  result := false
+  
+  i := text.rxcheck
+  if i <> -1
+    if i == 27
+      result := true
+    else
+      term.SendKey(i)
+    
+  if term.RcvDisp(@i)
+    text.tx(i)
+             
 
 PUB dumptrace1(i) | t
 
@@ -618,7 +623,7 @@ PUB Go | i,timer
 
   timer := cnt
 
-  repeat until (text.rxcheck <> -1)
+  repeat until PumpTerminal
     Clock(false)
 '    waitcnt(timer += clkfreq / 10)
 

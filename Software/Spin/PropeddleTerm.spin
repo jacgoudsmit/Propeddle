@@ -77,7 +77,7 @@ PUB Start(MapPtr)
 
   if result
     repeat until g_CogId ' The cog stores its own ID + 1
-    
+
 
 PUB Stop
 '' Stops the trace cog if it is running.
@@ -93,23 +93,47 @@ PUB SendKey(key) | t
   ' - Setting bit 7 of the key code
   ' - Making sure that the top 24 bits of the key are different from before
   '   the function was called.
-  ' - Making sure the RAM chip disable bits are set
-  t := ((g_Key + $100) & $FFFFFF00) | key.byte | $80 | hw#con_mask_RAM 
-  g_Key := t   
+  t := ((g_Key + $100) & $FFFFFF00) | key | $80 
+  result := (g_Key := t) & $7F   
 
 
-PUB RecvChar
+PUB RcvDisp(pchar) | t
 '' This gets a character from the 6502
-'' The result has bit 8 set if a new character is being sent to the terminal 
+'' The character is stored at the pointer, bit 7 is set
+'' and the result is true if the character is new.
 
-  result := g_Display
-  g_Display := result & $7F
+  ' Note, the 6502 _sets_ bit 7 when there is a new character and we have to
+  ' _reset_ it here when we pick it up, but the result value has bit 7
+  ' reversed.
+  result := ((byte[pchar] := g_Display ^ $80) & $80) == 0
+  if result
+    g_Display &= $7F
 
     
 DAT
 
 '============================================================================
 ' Hub access cog
+'
+' NOTE: This code cheats a little on the timing. It listens for the 6502 to
+' read from or write to the addresses that the module is configured for,
+' but when that happens, it takes two cycles to do its processing in some
+' cases. Obviously, it has to handle the read or write immediately, but if
+' there are too many things to do, this happens during the next 6502 cycle
+' (the one AFTER the 6502 reads or writes an address in our memory area).
+'
+' The reason we can get away with this, is that there are only a few
+' situations where the 6502 might access the same location twice:
+' 1. When it retrieves a one-byte instruction to execute, it reads the
+'    instruction byte from memory twice.
+' 2. When it executes a read-modify-write instruction (INC or DEC), the
+'    location is read in one cycle and written in the next cycle.
+'
+' It doesn't make much sense to execute code from an I/O location, and it
+' also doesn't make much sense to increment or decrement the location where
+' I/O happens, so if we stay off the databus, we can safely ignore the 6502
+' to do some extra processing.
+
 
                         org     0
 TermCog
@@ -179,12 +203,13 @@ pointertable_len        long    (@pointertable_len - @pointertable) >> 2
 
 ' Constants
 mask_CLK0               long    (|< hw#pin_CLK0)
-mask_RW                 long    (|< hw#pin_RW)        
+mask_RW                 long    (|< hw#pin_RW)
 mask_RAM                long    hw#con_mask_RAM
 mask_DATA_RAM           long    hw#con_mask_DATA | hw#con_mask_RAM
 mask_ADDR               long    hw#con_mask_ADDR
 
-d1                      long    (|< 9)          ' 1 in destination field        
+d1                      long    (|< 9)          ' 1 in destination field
+        
 ' Variables
 addr                    long    0               ' Current address
 data                    long    0               ' Various data
@@ -200,8 +225,7 @@ TermLoop
                         ' we were writing data to it during the previous
                         ' cycle.                        
                         andn    DIRA, #hw#con_mask_DATA ' Take data off the data bus
-TermLoop2                        
-                        andn    OUTA, mask_DATA_RAM ' Enable the RAM chip too
+                        andn    OUTA, mask_DATA_RAM     ' Clear data, enable RAM chip
 'tp=12
                         ' Get the R/W pin into the Z flag.
                         ' Z=1 if the 6502 is writing
@@ -227,69 +251,61 @@ TermLoop2
                         ' Regardless of the configured speed, the control cog
                         ' always makes CLK0 high here.
 JmpIns                        
-        if_c            jmp     (0)                     ' Indirect jump                                                                           
+        if_c            jmp     (0)                     ' Indirect jump based on address bus                                                                          
 'tp=44
 TermLoopPhi2
 ReadWrite3
-                        ' Wait until CLK0 goes low
-                        waitpne mask_CLK0, mask_CLK0
+                        ' To jump here, tp must be 74 or lower
+                        waitpne mask_CLK0, mask_CLK0    ' Wait until CLK0 goes low
 'tp=0
                         jmp     #TermLoop
 
 
-                        '====================================================
-                        ' Read/write key code
-                        '
-                        ' In write mode (Z=1) there's nothing to do here
+'============================================================================
+' Accessing base+0: Read/write key code
+'
+' In write mode (Z=1) there's nothing to do here
+
+ 
 'tp=44
 ReadWrite0
-                        ' Get the current key from the hub
-                        ' The Spin code sets bit 7 for compatibility,
-                        ' and sets the RAMOE bit in the key variable too so that
-                        ' the RAM chip is disabled.
+                        ' In read mode, get the current key from the hub
+                        ' The Spin code sets bit 7
         if_nz           rdlong  data, pKey             ' Get latest key from hub
+        
 'tp=52..67 read / tp=48 write
                         ' Put the key on the data bus
                         ' It 's okay if some extra bits get set, the DIRA register
                         ' will keep them from reaching the output port or from
                         ' causing any harm.
-                        ' The RAM bits in the key field are set by the Spin code
-                        ' so they stay high to keep the RAM chip disabled
         if_nz           or      OUTA, data
         if_nz           or      DIRA, #hw#con_mask_DATA
 'tp=60..79 read / tp=52 write
-                        ' Wait until the clock is low again.
+                        ' In read mode as well as write mode, wait until the
+                        ' next clock cycle
                         waitpne mask_CLK0, mask_CLK0    ' Wait until CLK0 goes low
-'tp=0..5                        
+
+                        '====================================================
+                        ' Next cycle
+'tp=0..5
+                        ' In the best case, where hub instruction didn't delay
+                        ' the wait instruction too much, we have to hold the data
+                        ' on the data bus for just a few nanoseconds.
+                        '
+                        ' We can use this time to reset the new-key flag
+        if_nz           andn    KeyFlag, #$80
+'tp=4..9                                                
                         ' In the worst case where the cycle time is 80 prop clocks
                         ' and the hub instruction took the maximum time, we're now 5
                         ' clocks into the next 6502 cycle.
                         ' We have to get off the data bus NOW (possibly one cycle
                         ' later than usual, that's no big deal)
-'@@@ if not worst case, wait                        
-                        andn    DIRA, #hw#con_mask_DATA
-'tp=4..9
-                        ' In write mode, tp=4 here so we can jump back to the main
-                        ' loop now and the timing will be correct.
-        if_z            jmp     #TermLoop2
-'tp=8..13                    
-                        ' We don't have time to process this cycle in the normal
-                        ' way because we're potentially running late and we're
-                        ' not done processing yet. But it's safe to ignore the
-                        ' 6502 during this cycle because the only way that it
-                        ' would access us twice in a row would be if it would
-                        ' be reading an instruction, or if it would be executing
-                        ' a read-write instruction (INC or DEC). An instruction
-                        ' read would not make sense, and in case of INC/DEC,
-                        ' (which also doesn't make sense anyway), the write
-                        ' part of the operation would need to be ignored anyway.
-                        '
-                        ' Reset the new-key flag
-        if_nz           andn    KeyFlag, #$80
-'tp=16..21
-                        ' Copy the new key for use in the next cycle
-                        mov     g_Key, data
-'tp=20..25                        
+        if_nz           andn    DIRA, #hw#con_mask_DATA
+        if_nz           andn    OUTA, mask_DATA_RAM
+'tp=8..13
+                        ' Copy the new key for future comparison
+        if_nz           mov     g_Key, data
+'tp=12..17                        
                         ' Wait until the end of this cycle, and then go on with our
                         ' regular business.                        
                         waitpeq mask_CLK0, mask_CLK0    ' Wait until CLK0 goes high
@@ -297,10 +313,12 @@ ReadWrite0
                         jmp     #TermLoopPhi2
 
                                     
-                        '====================================================
-                        ' Read/write key flag
-                        '
-                        ' In write mode (Z=1) there's nothing to do here
+'============================================================================
+' Accessing base+1: Read/write key flag
+'
+' In write mode (Z=1) there's nothing to do here
+
+
 'tp=44
 ReadWrite1
                         ' Put the key flag on the databus when in read mode
@@ -309,35 +327,36 @@ ReadWrite1
 'tp=52
                         ' Wait until the clock is low again.
                         waitpne mask_CLK0, mask_CLK0    ' Wait until CLK0 goes low
+
+                        '====================================================
+                        ' Next cycle
 'tp=0
                         ' In write mode, we're done
         if_z            jmp     #TermLoop
 'tp=4
-                        ' We're now in the next 6502 cycle, where we can do our
-                        ' processing to find out if the key has changed.
-                        ' See above for explanation why this is okay.
-                        '
+                        ' Take the data off the data bus
+                        andn    DIRA, #hw#con_mask_DATA
+                        andn    OUTA, mask_DATA_RAM
+'tp=12
                         ' Get the current key from the hub
                         ' The Spin code sets bit 7 for compatibility,
-                        ' and sets the RAMOE bit in the key variable too so that
-                        ' the RAM chip is disabled.
                         rdlong  data, pKey             ' Get latest key from hub
-'tp=12..27
+'tp=20..35
                         ' Wait for the clock to go high
                         waitpeq mask_CLK0, mask_CLK0    ' Wait until CLK0 goes high
 'tp=40                                                
                         ' Check if new key is different from the old one.
-                        ' If so, set the new-key flag.
-                        ' The flag is only reset when the 6502 reads base+0
+                        ' If so, set the new-key flag and store the new value.
+                        ' The flag is only reset when the 6502 reads base+0.
                         cmp     g_Key, data wz
         if_nz           or      KeyFlag,  #$80          ' Set new-key bit if different
-                        mov     g_Key, data             ' Store the new key
+        if_nz           mov     g_Key, data             ' Store the new key
 'tp=52
                         jmp     #TermLoopPhi2                        
 
                                     
-                        '====================================================
-                        ' Read/write display output
+'============================================================================
+' Accessing base+2: Read/write display output
 
 
 ReadWrite2
@@ -354,27 +373,36 @@ ReadWrite2
 'tp=60..75
                         ' Wait until the clock is low again.
                         waitpne mask_CLK0, mask_CLK0    ' Wait until CLK0 goes low
+
+                        '====================================================
+                        ' Next cycle
 'tp=0..1
+                        ' In the best case, where hub instruction didn't delay
+                        ' the wait instruction too much, we have to hold the data
+                        ' on the data bus for just a few nanoseconds.
                         nop
-                        
+'tp=4..5                        
                         ' In the worst case, we're running one cycle late.
-                        ' We need to take the data off the data bus but we
-                        ' don't have time to process this cycle. That's okay,
-                        ' see above.
+                        ' We need to take the data off the data bus but that
+                        ' leaves us no time to monitor the address bus during
+                        ' this cycle. That's okay, we just wait for the next
+                        ' cycle.
                         andn    DIRA, #hw#con_mask_DATA
                         andn    OUTA, mask_DATA_RAM ' Enable the RAM chip too
-
+'tp=12..13
                         ' Wait until CLK0 goes high
                         waitpeq mask_CLK0, mask_CLK0
 'tp=40
                         jmp     #TermLoopPhi2
                         
 
+                        '====================================================
+                        ' Write code for base+2
 
 WriteDisplay
 'tp=48
-                        ' Get data from the data bus
-                        ' Set the msb
+                        ' Get data from the data bus and set the msb to let
+                        ' the spin code know that this is a new value.
                         mov     g_Display, INA
                         or      g_Display, #$80
 'tp=52
