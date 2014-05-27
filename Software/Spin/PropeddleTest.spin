@@ -31,9 +31,10 @@ CON
   _xinfreq = 6_250_000
 
   con_tracelen = 125
+  con_speed    = 100
   
 OBJ
-  text:         "FullDuplexSerial" {{"SerInTVOut"}}
+  text:         "SerInTVOut"
   ctrl:         "PropeddleControl"
   hw:           "PropeddleHardware"
 '  ram:          "PropeddleRAM"
@@ -73,30 +74,30 @@ DAT
        
 PUB testmain | i
 
-  text.Start(31,30,0,115200)
-  'text.Start
+  'text.Start(31,30,0,115200)
+  text.Start
   
   waitcnt(clkfreq + cnt)
 
-  text.str(string("Hello", 13))
+  text.str(string(13, "Propeddle", 13))
   
   repeat
     DemoDump
 
 
 PUB DemoDump | i
-      
+
+  text.str(string("Starting control cog",13))
   ctrl.Start
+
+  text.str(string("Starting terminal cog",13))
   term.Start($D010)
 
   ' Hub access cog must be started after control cog
-  text.str(string("Starting hub cog: "))
-  text.hex(@romimage, 4)
-  text.tx(32)
-'  text.hex(byte[@romimage], 2)
-'  text.tx(32)
+  text.str(string("Starting hub cog. ROM image at $"))
   text.hex(romstart, 4)
   text.tx(32)
+  text.str(string(", length $"))
   text.hex(@romend - @romimage, 4)
   text.tx(13)
   hub.Start(@romimage, romstart, @romend - @romimage, TRUE)
@@ -104,21 +105,20 @@ PUB DemoDump | i
   ' Give us a wink to show you're there
   'ctrl.LedOn
 
-  text.str(string("Reset On",13))
+  text.str(string("Resetting",13))
   ctrl.SetSignal(hw#pin_CRES, TRUE)
   
   repeat 2
-    trace.Start(@tracedump, 1)
-    ctrl.Run(40_000_000, 1)
+    'trace.Start(@tracedump, 1)
+    ctrl.Run(con_speed, 1)
     ctrl.RunWait(clkfreq + cnt)
-
-    dumptrace0
+    'dumptrace0
 
   ctrl.SetSignal(hw#pin_CRES, FALSE)
-  text.str(string("Reset Off",13))
+  'text.str(string("Reset Off",13))
 
   trace.Start(@tracedump, con_tracelen)
-  ctrl.Run(100, 0) 'con_tracelen)
+  ctrl.Run(con_speed, 0)
   
   repeat until PumpTerminal
 
@@ -136,15 +136,15 @@ PUB DemoDump | i
 
 
 PUB PumpTerminal | i
+'' Sends keystrokes to the 6502 and prints bytes from the 6502
+'' Returns true if user hits Esc key
 
   result := false
   
   i := text.rxcheck
   if i <> -1
-    if i == 27
-      result := true
-    else
-      term.SendKey(i)
+    term.SendKey(i)
+    result := (i == 27)
     
   if term.RcvDisp(@i)
     text.tx(i)
@@ -240,8 +240,8 @@ PUB Zap(usecontrolcog) | i
     if (cogid <> i)
       cogstop(i)
 
-  text.Start(31,30,0,115200)
-'  text.start
+  'text.Start(31,30,0,115200)
+  text.start
 
   if (usecontrolcog)
     ctrl.Start
