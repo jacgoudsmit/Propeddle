@@ -34,12 +34,16 @@ CON
   _clkmode = XTAL1 + PLL16X
   _xinfreq = 6_250_000
 
+  con_speed = 100
+
+
 OBJ
   text:         "SerInTVOut" {{"FullDuplexSerial"}}
   ctrl:         "PropeddleControl"
   hw:           "PropeddleHardware"
   hub:          "PropeddleHub"
   term:         "PropeddleTerm"
+
   
 DAT
   ' The module "maps" the following block of ram into the top of the 6502 memory space, regardless
@@ -50,11 +54,8 @@ DAT
   romend      
 
   romstart    long $1_0000 - (@romend - @romimage)
-      
-  signals     long 0
 
-  clkcount    long 0
-       
+      
 PUB Main | i
 
   ' Initialize serial port and video
@@ -70,25 +71,31 @@ PUB Main | i
   text.str(string("Starting terminal cog",13))
   term.Start($D010)
 
+{{
   ' Hub access cog must be started after control cog
   text.str(string("Starting hub cog. ROM image at $"))
   text.hex(romstart, 4)
-  text.str(string(", length $"))
+  text.str(string(13,"ROM image length is $"))
   text.hex(@romend - @romimage, 4)
   text.tx(13)
   hub.Start(@romimage, romstart, @romend - @romimage, TRUE)
+}}
+  text.str(string("Downloading",13))
+  ctrl.Download(con_speed * 2, @romimage, romstart, @romend - @romimage)
 
   text.str(string("Resetting",13))
   ctrl.SetSignal(hw#pin_CRES, TRUE)
   
   repeat 2
-    ctrl.Run(100, 1)
+    'starttrace1
+    ctrl.Run(con_speed, 1)
     ctrl.RunWait(clkfreq + cnt)
+    'dumptrace0
 
   ctrl.SetSignal(hw#pin_CRES, FALSE)
 
   text.str(string("Running",13))
-  ctrl.Run(100, 0)
+  ctrl.Run(con_speed, 0)
   
   repeat
     i := text.rxcheck
@@ -96,13 +103,61 @@ PUB Main | i
       term.SendKey(i)
       result := (i == 27)
       
-    if term.RcvDisp(@i)
+    i := term.RcvDisp
+    if i => 0
       if (i < 32) or (i > 126)
-        text.tx(32)
-        text.tx(8)
+        text.str(string(32,8))
       text.tx(i)
-      text.tx(64)
-      text.tx(8)
+      text.str(string(64,8))
                
 
-      
+{{>>START TRACE CODE}}
+CON
+  con_tracelen = 125
+
+OBJ
+  trace:        "PropeddleTrace"
+
+DAT
+  tracedump long 0[con_tracelen]
+
+PUB dumptrace1(i) | t
+
+  t := tracedump[i]
+  result := t <> 0
+  if result
+    if (t & $80000000) <> 0
+      text.tx("R")
+    else
+      text.tx("W")
+    text.tx(32)
+    text.hex((t & $FFFF00) >> 8, 4)
+    text.tx(32)
+    text.hex((t & $FF), 2) 
+    text.tx(13)
+  else
+    text.str(string("- ---- --", 13))  
+
+PUB dumptrace0
+
+  dumptrace1(0)
+  
+PUB dumptrace | i
+
+  repeat i from 0 to con_tracelen - 1
+    if tracedump[i] <> 0
+      text.hex(i, 4)
+      text.str(string(": "))
+      dumptrace1(i)
+    else
+      quit
+
+PUB starttrace
+
+  trace.Start(@tracedump, con_tracelen)
+
+PUB starttrace1
+
+  trace.Start(@tracedump, 1)
+  
+{{<<END TRACE CODE}}      

@@ -97,16 +97,16 @@ PUB SendKey(key) | t
   result := (g_Key := t) & $7F   
 
 
-PUB RcvDisp(pchar) | t
+PUB RcvDisp | t
 '' This gets a character from the 6502
-'' The character is stored at the pointer, bit 7 is set
-'' and the result is true if the character is new.
+'' If a new character is available, the result is 0 or greater
 
   ' Note, the 6502 _sets_ bit 7 when there is a new character and we have to
-  ' _reset_ it here when we pick it up, but the result value has bit 7
-  ' reversed.
-  result := ((byte[pchar] := g_Display ^ $80) & $80) == 0
-  if result
+  ' _reset_ it here when we pick it up.
+  ' We invert bit 7 (so 0..127 indicates a new charcter) and then sign-extend
+  ' the result for easy comparison.
+  result := g_Display ^ $80  ' 
+  if ~result => 0
     g_Display &= $7F
 
     

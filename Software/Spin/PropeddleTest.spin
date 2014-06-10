@@ -93,6 +93,7 @@ PUB DemoDump | i
   text.str(string("Starting terminal cog",13))
   term.Start($D010)
 
+{{
   ' Hub access cog must be started after control cog
   text.str(string("Starting hub cog. ROM image at $"))
   text.hex(romstart, 4)
@@ -101,6 +102,9 @@ PUB DemoDump | i
   text.hex(@romend - @romimage, 4)
   text.tx(13)
   hub.Start(@romimage, romstart, @romend - @romimage, TRUE)
+}}
+  text.str(string("Downloading",13))
+  ctrl.Download(con_speed, @romimage, romstart, @romend - @romimage)
 
   ' Give us a wink to show you're there
   'ctrl.LedOn
@@ -115,19 +119,15 @@ PUB DemoDump | i
     'dumptrace0
 
   ctrl.SetSignal(hw#pin_CRES, FALSE)
-  'text.str(string("Reset Off",13))
+  text.str(string("Reset Off",13))
 
   trace.Start(@tracedump, con_tracelen)
   ctrl.Run(con_speed, 0)
   
-  repeat until PumpTerminal
-
-'    i := ctrl.RunWait(clkfreq + cnt)
-'    'text.dec(i)
-'    'text.tx(13)
-'    if i <> ctrl#con_RESULT_RUN_RUNNING
-'      quit
-
+  repeat
+    if PumpTerminal
+      quit
+    
   dumptrace
   
   repeat
@@ -146,9 +146,13 @@ PUB PumpTerminal | i
     term.SendKey(i)
     result := (i == 27)
     
-  if term.RcvDisp(@i)
+  i := term.RcvDisp
+  if i => 0
+    if (i < 32) or (i > 126)
+      text.str(string(32,8))
     text.tx(i)
-             
+    text.str(string(64,8))
+           
 
 PUB dumptrace1(i) | t
 

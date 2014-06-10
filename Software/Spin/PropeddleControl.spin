@@ -265,7 +265,6 @@ PUB Run(parm_cycletime, parm_numcycles)
 '' The calling cog will own the lock.
 ''
 '' Returns TRUE if successful, FALSE if cog is not in STOPPED state
-
   result := (g_state == con_state_STOPPED)
   if result
     Open
@@ -342,7 +341,7 @@ PRI Close
   lockclr(g_busylock)
 
 
-PRI SendCommand(cmdtosend)
+PRI SendCommand(cmdtosend) | c
 ' Sends the given command to the control cog
 '
 ' This should only be called after waiting for the lock and setting
@@ -357,10 +356,11 @@ PRI SendCommand(cmdtosend)
   ' start of the cog code, and that value has to be shifted right by 2 to
   ' get the cog address because cog addresses are longword addresses, not
   ' byte addresses.
-  g_cmd := (cmdtosend - @ControlCog) >> 2
+  c := (cmdtosend - @ControlCog) >> 2
 
   ' Wait until the control cog picks up the command
-  repeat while (g_cmd == cmdtosend)
+  g_cmd := c
+  repeat while (g_cmd == c)
 
   result := g_retval
   
@@ -456,18 +456,18 @@ Init
                         add     Init, d1
                         djnz    pointertable_len, #init
 
-                        ' Init direction register
-                        mov     DIRA, dir_INIT
-
-                        ' Initialize all outputs except signals
-                        mov     OUTA, out_INIT
-
                         ' Fall through
 '============================================================================
 ' Command fetching loop
 
                         
 SetStopState
+                        ' Init direction register
+                        mov     DIRA, dir_INIT
+
+                        ' Initialize all outputs except signals
+                        mov     OUTA, out_INIT
+
                         ' Initialize state
                         mov     g_state, #con_state_STOPPED 
                         wrlong  g_state, parm_pState
@@ -605,187 +605,6 @@ CmdDisconnectI2C
                         
 
 '============================================================================
-' Download data from the hub to the RAM
-
-CmdDownload
-                        ' Initialize parameters
-                        rdlong  g_hubaddr, parm_pHubAddr
-                        rdlong  g_hublen, parm_pHubLen wz
-                        rdlong  startaddr, parm_pAddr
-                        rdlong  g_cycletime, parm_pCycleTime
-                        
-                        ' If nothing to do, return
-              if_z      jmp     #CommandDone
-              
-                        ' Initialize timer
-                        min     g_cycletime, #con_delay_MAINLOOP_MINDELAY
-
-                        ' Initialize state machine
-                        ' Z is always 0 at this time
-                        ' For the first state, there is no address matching
-                        muxnz   :addrmatch, mux_Z_TO_ALWAYS
-                        movs    :addrmatch, #:state_nmi
-                        movs    :loopins, #:loop
-
-                        '-------------------------------                        
-                        ' Downloading state machine starts here
-:loop                        
-                        ' Start Phi1
-                        mov     OUTA, out_PHI1
-
-                        ' Wait for address bus to stabilize
-                        ' Meanwhile, initialize direction and test for
-                        ' read/write.
-                        andn    DIRA, mask_ADDR
-                        test    INA, mask_RW wc
-
-                        ' Get address
-                        mov     g_addr, INA
-                        and     g_addr, mask_ADDR
-
-                        ' Disable address latches                                
-                        or      OUTA, mask_AEN
-
-                        ' If the address matches the currently expected
-                        ' address, jump to the currently defined state
-                        cmp     g_addr, expectedaddr wz
-:addrmatch    if_z      jmp     #(0)                    ' Modified to jump depending on state
-
-                        '-------------------------------
-                        ' The address doesn't match
-                        ' Enable the RAM based on the R/W signal
-:doram        if_c      andn    OUTA, mask_RAMOE        ' RAM to 65C02
-              if_nc     andn    OUTA, mask_RAMWE        ' 65C02 to RAM
-
-                        ' Start Phi2
-:loopphi2                        
-                        or      OUTA, mask_CLK0
-
-                        ' Nothing to do during Phi2
-:loopwait
-                        ' Wait for the entire cycle time
-                        mov     clock, CNT
-                        add     clock, g_cycletime
-                        waitcnt clock, #0
-:loopins                jmp     #(:loop)                ' Changed to CommandDone when done                        
-
-                        '-------------------------------
-                        ' Feed a byte to the 6502 during Phi2
-:feedbyte6502
-                        or      OUTA, feedbyte          ' 16 bits or'ed, upper 8 bits ignored
-                        or      DIRA, mask_DATA         ' because of this DIRA setting
-                        or      OUTA, mask_CLK0         ' Start Phi2
-
-                        jmp     #:loopwait                        
-
-                        '-------------------------------
-                        ' Initial state: Activate NMI
-:state_nmi
-                        ' Restore the jmp instruction
-                        or      DIRA, mask_SIGNALS wz   ' Z is always 0
-                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' Change back to if_z
-
-                        ' Generate NMI (which is edge triggered)
-                        or      g_signals, mask_CNMI
-                        call    #SendSignals
-
-                        ' Change state when NMI vector appears
-                        mov     expectedaddr, vector_NMI
-                        movs    :addrmatch, #:state_vector1
-
-                        ' Finish as normal cycle
-                        jmp     #:loopphi2
-                        
-                        '-------------------------------
-                        ' 6502 is fetching low part of vector
-:state_vector1
-                        ' Next time, check for the second half of the vector
-                        add     expectedaddr, #1
-                        movs    :addrmatch, #:state_vector2
-
-                        ' Feed the low byte of the start address to the 6502
-                        ' Note, bits 8-15 are ignored because of DIRA setting
-                        ' We use this to store the value temporarily
-                        mov     feedbyte, startaddr
-
-                        jmp     #:feedbyte6502
-                        
-                        '-------------------------------
-                        ' 6502 is fetching high part of vector
-:state_vector2
-                        ' Next time, check for the start address of our area
-                        mov     expectedaddr, startaddr
-                        movs    :addrmatch, #:state_writedata
-
-                        ' Feed the high byte of the start address to the 6502
-                        shr     feedbyte, #8
-                        jmp     #:feedbyte6502
-
-                        '-------------------------------
-                        ' 6502 is iterating our target area
-:state_writedata
-                        ' Next time, expect the address to be one higher
-                        ' but stay in this state
-                        add     expectedaddr, #1
-
-                        ' Get data from the hub at the current location 
-                        rdbyte  data, g_hubaddr
-
-                        ' Put data from hub on data bus
-                        or      OUTA, data
-                        or      DIRA, mask_DATA
-
-                        ' Activate the RAM
-                        andn    OUTA, mask_RAMWE
-
-                        ' Wait for RAM to store the data
-                        ' Meanwhile, do some housekeeping
-                        add     g_hubaddr, #1
-                        sub     g_hublen, #1 wz
-              if_z      jmp     #:endwrite                                                        
-
-                        ' Deactivate RAM
-                        or      OUTA, mask_RAMWE
-
-                        ' Feed a CMP Immediate instruction to the 6502.
-                        mov     feedbyte, #$C9          ' CMP IMMEDIATE
-                        jmp     #:feedbyte6502
-
-                        '-------------------------------
-                        ' Finishing up after last write-cycle
-                        ' Z=1 at this time
-:endwrite
-                        ' Deactivate NMI
-                        or      DIRA, mask_SIGNALS
-                        andn    g_signals, mask_CNMI
-                        call    #SendSignals
-
-                        ' From now on, disregard match to expected address
-                        ' and always jump to the state function                                                
-                        movs    :addrmatch, #:state_endwrite
-                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' disregard address from now on
-
-                        ' Feed RTI to the 6502
-:feedRTI                mov     feedbyte, #$40          ' RTI
-                        jmp     #:feedbyte6502
-                                                
-                        '-------------------------------
-                        ' Done writing bytes to RAM
-:state_endwrite
-                        ' We're now sending RTI instructions to the 6502.
-                        ' We do this until the current address doesn't match
-                        ' the expected address anymore, which means that the
-                        ' 6502 is fetching the flags and return address from
-                        ' the stack.
-              if_z      add     expectedaddr, #1
-              if_z      jmp     #:feedRTI
-
-                        ' Break out of the loop after finishing Phi2
-                        movs    :loopins, #CommandDone
-                        jmp     #:doram          
-                        
-                        
-'============================================================================
 ' Run the main loop
 '
 ' NOTE: The main loop was meticulously constructed to generate a loop that
@@ -843,6 +662,10 @@ CmdRun
                         mov     g_state, #con_state_RUNNING
                         wrlong  g_state, parm_pState
 
+                        ' Clear the command to tell the Spin code we're running
+                        mov     g_Cmd, #0
+                        wrlong  g_Cmd, parm_pCmd
+                        
                         ' Load initial signals
                         ' If they are zero, bail out right away.
                         ' The Spin code will make sure that whenever the
@@ -1054,11 +877,6 @@ LoopIns
 DropOutIns              waitcnt clock, g_cycletime
         
 EndMainLoop
-                        ' Make sure the pins have the correct direction and
-                        ' value.
-                        mov     DIRA, dir_INIT
-                        mov     OUTA, out_INIT
-
                         ' Store the counter back into the hub
                         wrlong  g_counter, parm_pCounter
                         
@@ -1084,6 +902,209 @@ EndMainLoop
                         jmp     #SetStopState                                  
 
 
+'============================================================================
+' Download data from the hub to the RAM
+
+CmdDownload
+                        ' Initialize parameters
+                        rdlong  g_hubaddr, parm_pHubAddr
+                        rdlong  g_hublen, parm_pHubLen wz
+                        rdlong  startaddr, parm_pAddr
+                        rdlong  g_cycletime, parm_pCycleTime
+                        
+                        ' If nothing to do, return
+              if_z      jmp     #CommandDone
+              
+                        ' Initialize timer
+                        min     g_cycletime, #con_delay_MAINLOOP_MINDELAY
+
+                        ' Initialize state machine
+                        ' Z is always 0 at this time
+                        ' For the first state, there is no address matching
+                        muxnz   :addrmatch, mux_Z_TO_ALWAYS
+                        movs    :addrmatch, #:state_nmi
+                        movs    :loopins, #:loop
+
+                        '-------------------------------                        
+                        ' Downloading state machine starts here
+:loop                        
+                        ' Turn off the Write Enable to the RAM just in case.
+                        or      OUTA, mask_RAMWE
+
+                        ' Start by set the clock LOW, starting PHI1.
+                        andn    OUTA, mask_CLK0
+
+                        ' Check if another cog is keeping the clock in the high
+                        ' state, indicating that they want us to stop running.
+                        ' This is not supported for download mode, but we have
+                        ' to make sure it doesn't happen.
+:nobreak                test    mask_CLK0, INA wc
+        if_c            jmp     #:nobreak
+
+                        ' Initialize all output signals
+                        ' This enables the '244s to let the address through.
+                        mov     OUTA, out_PHI1
+
+                        ' Get the address
+                        ' It takes a few nanoseconds before it's available, we
+                        ' use this time to set up our direction register
+                        mov     DIRA, dir_PHI1
+                        mov     g_addr, INA
+                        and     g_addr, mask_ADDR
+                        
+                        ' Test if 65C02 is reading or writing
+                        test    mask_RW, INA wc
+                        
+                        ' Deactivate the address buffers again
+                        or      OUTA, mask_AEN
+
+                        ' If the address matches the currently expected
+                        ' address, jump to the currently defined state
+                        cmp     g_addr, expectedaddr wz
+:addrmatch    if_z      jmp     #(0)                    ' Modified to jump depending on state
+
+                        '-------------------------------
+                        ' The address doesn't match
+                        ' Enable the RAM based on the R/W signal
+:doram        if_c      andn    OUTA, mask_RAMOE        ' RAM to 65C02
+              if_nc     andn    OUTA, mask_RAMWE        ' 65C02 to RAM
+
+                        ' Start Phi2
+:loopphi2                        
+                        or      OUTA, mask_CLK0
+
+                        ' Nothing to do during Phi2
+:loopwait
+                        ' Wait for the entire cycle time
+                        mov     clock, CNT
+                        add     clock, g_cycletime
+                        waitcnt clock, #0
+:loopins                jmp     #(:loop)                ' Changed to CommandDone when done                        
+
+                        '-------------------------------
+                        ' Feed a byte to the 6502 during Phi2
+:feedbyte6502
+                        or      OUTA, feedbyte          ' 16 bits or'ed, upper 8 bits ignored
+                        or      DIRA, mask_DATA         ' because of this DIRA setting
+                        or      OUTA, mask_CLK0         ' Start Phi2
+
+                        jmp     #:loopwait                        
+
+                        '-------------------------------
+                        ' Initial state: Activate NMI
+:state_nmi
+                        ' Restore the jmp instruction
+                        or      DIRA, mask_SIGNALS wz   ' Z is always 0
+                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' Change back to if_z
+
+                        ' Generate NMI (which is edge triggered)
+                        or      g_signals, mask_CNMI
+                        call    #SendSignals
+
+                        ' Change state when NMI vector appears
+                        mov     expectedaddr, vector_NMI
+                        movs    :addrmatch, #:state_vector1
+
+                        ' Finish as normal cycle
+                        jmp     #:loopphi2
+                        
+                        '-------------------------------
+                        ' 6502 is fetching low part of vector
+:state_vector1
+                        ' Next time, check for the second half of the vector
+                        add     expectedaddr, #1
+                        movs    :addrmatch, #:state_vector2
+
+                        ' Feed the low byte of the start address to the 6502
+                        ' Note, bits 8-15 are ignored because of DIRA setting
+                        ' We use this to store the value temporarily
+                        mov     feedbyte, startaddr
+
+                        jmp     #:feedbyte6502
+                        
+                        '-------------------------------
+                        ' 6502 is fetching high part of vector
+:state_vector2
+                        ' Next time, check for the start address of our area
+                        mov     expectedaddr, startaddr
+                        movs    :addrmatch, #:state_writedata
+
+                        ' Feed the high byte of the start address to the 6502
+                        shr     feedbyte, #8
+                        jmp     #:feedbyte6502
+
+                        '-------------------------------
+                        ' 6502 is iterating our target area
+:state_writedata
+                        ' Next time, expect the address to be one higher
+                        ' but stay in this state
+                        add     expectedaddr, #1
+                        and     expectedaddr, mask_ADDR ' in case of wrap-around
+
+                        ' Get data from the hub at the current location 
+                        rdbyte  data, g_hubaddr
+
+                        ' Put data from hub on data bus
+                        or      OUTA, data
+                        or      DIRA, mask_DATA
+
+                        ' Activate the RAM
+                        andn    OUTA, mask_RAMWE
+
+                        ' Wait for RAM to store the data
+                        ' Meanwhile, do some housekeeping
+                        add     g_hubaddr, #1
+                        sub     g_hublen, #1 wz
+              if_z      jmp     #:endwrite                                                        
+
+                        ' Deactivate RAM
+                        or      OUTA, mask_RAMWE
+
+                        ' Feed a CMP Immediate instruction to the 6502.
+                        mov     feedbyte, #$C9          ' CMP IMMEDIATE
+
+                        ' Take the memory byte off the data bus
+                        andn    OUTA, mask_DATA
+                        
+                        jmp     #:feedbyte6502
+
+                        '-------------------------------
+                        ' Finishing up after last write-cycle
+                        ' Z=1 at this time
+:endwrite
+                        ' Deactivate NMI
+                        or      DIRA, mask_SIGNALS
+                        andn    g_signals, mask_CNMI
+                        call    #SendSignals
+
+                        ' From now on, disregard match to expected address
+                        ' and always jump to the state function                                                
+                        movs    :addrmatch, #:state_endwrite
+                        muxz    :addrmatch, mux_Z_TO_ALWAYS ' disregard address from now on
+
+                        ' Feed RTI to the 6502
+:feedRTI                mov     feedbyte, #$40          ' RTI
+                        jmp     #:feedbyte6502
+                                                
+                        '-------------------------------
+                        ' Done writing bytes to RAM
+:state_endwrite
+                        ' We're now sending RTI instructions to the 6502.
+                        ' We do this until the current address doesn't match
+                        ' the expected address anymore, which means that the
+                        ' 6502 is fetching the flags and return address from
+                        ' the stack.
+              if_z      add     expectedaddr, #1
+              if_z      and     expectedaddr, mask_ADDR ' in case of wraparound
+              if_z      jmp     #:feedRTI
+
+                        ' Break out of the loop after finishing Phi2
+                        mov     DIRA, dir_INIT
+                        mov     OUTA, out_INIT
+                        movs    :loopins, #SetStopState
+                        jmp     #:doram          
+                        
+                        
 '============================================================================
 ' Working variables
 
