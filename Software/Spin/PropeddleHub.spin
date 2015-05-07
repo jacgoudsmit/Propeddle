@@ -75,6 +75,12 @@ DAT
 
                         org     0
 HubAccessCog
+                        ' Start the cog code with a NOP (opcode 0), so that
+                        ' the JMP WC instruction works as advertised.
+                        ' (See Issue 1)
+                        ' Thanks Konimaru (Marko Lukat) for pointing it out!
+                        nop
+                        
                         ' We are going to disable the RAM chip whenever we're
                         ' active, so make sure those pins are set for output.
                         mov     OUTA, #0
